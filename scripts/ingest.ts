@@ -27,6 +27,7 @@ import {
   type WorkRecord,
 } from "../src/ingest/record";
 import { structure } from "../src/ingest/structure";
+import { scriptDatabaseUrl } from "./db-url";
 
 const ROOT = process.cwd();
 const WORKS_DIR = path.join(ROOT, "content/works");
@@ -128,7 +129,7 @@ async function report(records: WorkRecord[]) {
 /* ──────────────────────────────── load ──────────────────────────────── */
 
 async function load(records: WorkRecord[]) {
-  const client = postgres((process.env.DATABASE_URL ?? process.env.POSTGRES_URL)!, { max: 1, onnotice: () => {} });
+  const client = postgres(scriptDatabaseUrl(), { max: 1, connect_timeout: 30, onnotice: () => {} });
   const db = drizzle(client, { schema: s });
   const manifest = await readManifest();
 

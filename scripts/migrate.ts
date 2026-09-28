@@ -1,8 +1,16 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { scriptDatabaseUrl } from "./db-url";
 
-const client = postgres((process.env.DATABASE_URL ?? process.env.POSTGRES_URL)!, { max: 1 });
-await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
-await client.end();
-console.log("Migrations applied.");
+const client = postgres(scriptDatabaseUrl(), { max: 1, connect_timeout: 30, onnotice: () => {} });
+try {
+  await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
+  console.log("Migrations applied.");
+} catch (err) {
+  const e = err as { message?: string; cause?: { message?: string } };
+  console.error("\n✗ Database setup failed:", e.cause?.message ?? e.message ?? err, "\n");
+  process.exitCode = 1;
+} finally {
+  await client.end({ timeout: 5 });
+}
