@@ -1,0 +1,61 @@
+accession: 2
+slug: lives-of-the-necromancers
+title: Lives of the Necromancers
+subtitle: or, An Account of the Most Eminent Persons in Successive Ages, Who Have Claimed for Themselves, or to Whom Has Been Imputed by Others, the Exercise of Magical Power
+authors: [{ slug: william-godwin }]
+category: magic
+subjects: [necromancy, divination, astrology, renaissance-magic]
+original_year: 1834
+original_year_basis: title_page
+original_language: English
+publication_status: published
+featured: true
+summary: >
+  A survey of those who claimed, or were accused of, magical power — from the
+  Magi and the oracles of Greece through medieval sorcerers and Renaissance
+  magi. Godwin's declared purpose, in his preface, is "to exhibit a fair
+  delineation of the credulity of the human mind".
+historical_context: >
+  Godwin, the radical philosopher of Political Justice, wrote this late work as
+  a rationalist's history. It is nonetheless a compendium of the lore it sets
+  out to explain, and it opens with a taxonomy of the arts — augury,
+  chiromancy, astrology, necromancy, alchemy — that reads like a map of the
+  whole field.
+archivist_notes: >
+  The opening sections (divination, sorcery, compacts with the Devil, imps,
+  talismans) work as a glossary for the rest of the archive.
+archivist_questions:
+  - How does Godwin distinguish sorcery, witchcraft and necromancy?
+  - What does Godwin say about the Rosicrucians?
+  - Which figures does Godwin treat as the most eminent magicians?
+edition:
+  label: London, 1834
+  publisher: Frederick J. Mason
+  place: London
+  year: 1834
+  year_basis: title_page
+  imprint: "LONDON / Frederick J Mason, 444, West Strand / 1834"
+source:
+  provider: Project Gutenberg
+  identifier: "7082"
+  url: https://www.gutenberg.org/ebooks/7082
+  fetch_url: https://raw.githubusercontent.com/GITenberg/Lives-of-the-Necromancers_7082/master/7082.txt
+  encoding: latin1
+  transcription_notes: Transcribed from page images made available by the Bibliothèque nationale de France (Gallica).
+  provider_subjects: ["Magicians -- Biography", "Magic -- History", "Witches -- Biography", "Witchcraft -- History"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Published 1834; author died 1836.
+  - component: edition
+    status: public_domain_us
+    confidence: high
+    basis: Volunteer transcription of a public-domain text; the provider records it as "Public domain in the USA".
+structure:
+  body_start: "^PREFACE\\.$"
+  heading: "^[A-Z][A-Z ,.;:'’&()\\-]{2,}$"
+related:
+  - { slug: the-rosicrucian-mysteries }
+  - { slug: the-private-diary-of-dr-john-dee, note: Dee appears among Godwin's English magicians. }
+  - { slug: the-story-of-alchemy }

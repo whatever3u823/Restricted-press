@@ -1,0 +1,58 @@
+accession: 9
+slug: the-rosicrucian-mysteries
+title: The Rosicrucian Mysteries
+subtitle: An Elementary Exposition of Their Secret Teachings
+authors: [{ slug: max-heindel }]
+category: esoterica
+subjects: [rosicrucianism, theosophy]
+original_language: English
+publication_status: published
+summary: >
+  An introductory statement of the teachings of Heindel's Rosicrucian
+  Fellowship: the Order of Rosicrucians, the problem of life and its solution,
+  the visible and invisible worlds, the constitution of man, and life and death.
+historical_context: >
+  Heindel founded the Rosicrucian Fellowship, which the text says was founded
+  in 1909 and headquartered at Oceanside, California, from 1911. The book
+  presents a modern Rosicrucianism shaped by Theosophy; it should not be
+  confused with the seventeenth-century Rosicrucian manifestos, which it
+  interprets rather than reproduces.
+archivist_notes: >
+  The transcription is of a third edition that includes a description of the
+  Fellowship's headquarters dated as late as January 1921. Front and back matter
+  include the Fellowship's own advertisements, which have been excluded.
+archivist_questions:
+  - What does Heindel say the Rosicrucian Order is?
+  - How does Heindel describe the invisible worlds?
+  - What happens after death according to The Rosicrucian Mysteries?
+edition:
+  label: Third edition, Rosicrucian Fellowship, Oceanside (undated)
+  publisher: Rosicrucian Fellowship; L. N. Fowler (London)
+  place: Oceanside, California
+  year_basis: unknown
+  edition_statement: Third Edition
+  notes: Undated on the title page. Internal references to January 1921 place this edition no earlier than 1921.
+source:
+  provider: Project Gutenberg
+  identifier: "29855"
+  url: https://www.gutenberg.org/ebooks/29855
+  fetch_url: https://raw.githubusercontent.com/GITenberg/The-Rosicrucian-Mysteries--13-An-Elementary-Exposition-of-Their-Secret-Teachings_29855/master/29855-0.txt
+  provider_subjects: ["Rosicrucians"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: medium
+    basis: Author died 1919; the provider records the text as public domain in the USA.
+    notes: The third edition is undated and contains material from 1921. Confirm its publication date (before 1931) or copyright non-renewal before any physical edition.
+  - component: edition
+    status: public_domain_us
+    confidence: medium
+    basis: Volunteer transcription; edition date unconfirmed.
+structure:
+  body_start: "^CHAPTER I\\. THE ORDER"
+  heading: "^CHAPTER [IVX]+\\. .+$"
+  end_at: "^INDEX$"
+related:
+  - { slug: the-kybalion }
+  - { slug: hidden-symbolism-of-alchemy }
+  - { slug: lives-of-the-necromancers, note: Godwin's short account of the Rosicrucians, written a century earlier. }

@@ -1,0 +1,60 @@
+accession: 14
+slug: the-golden-bough
+title: The Golden Bough
+subtitle: A Study in Magic and Religion (abridged edition)
+authors: [{ slug: james-frazer }]
+category: ancient-religion
+subjects: [comparative-religion, sacred-kingship, folklore, ritual, ceremonial-magic]
+original_year: 1890
+original_year_basis: curatorial
+original_language: English
+publication_status: published
+access_level: inner
+summary: >
+  Frazer sets out to explain the rule of succession to the priesthood of Diana
+  at Aricia — the priest who must slay his predecessor — and in doing so
+  assembles a vast comparative survey of sympathetic magic, sacred kingship,
+  tree worship, dying and reviving gods, scapegoats and fire festivals.
+historical_context: >
+  In his preface to this abridgment Frazer explains that the "two volumes of
+  the original work have expanded into twelve", and that the single-volume
+  version sacrifices all notes and exact references while adding no new matter.
+  The book's distinction between magic, religion and science became one of the
+  most influential — and contested — ideas in modern anthropology.
+archivist_notes: >
+  Chapter III, "Sympathetic Magic", defines homoeopathic and contagious magic;
+  the terms recur throughout the archive. The abridgment has no footnotes:
+  Frazer directs readers to the twelve-volume edition for sources.
+archivist_questions:
+  - What is the difference between homoeopathic and contagious magic?
+  - Why does Frazer think the priest of Nemi had to be killed?
+  - How does Frazer distinguish magic from religion?
+edition:
+  label: Abridged edition in one volume (1922)
+  year: 1922
+  year_basis: curatorial
+  notes: The transcription has no title page. The edition is identified as the one-volume abridgment by Frazer's own preface; the year is a curatorial identification pending verification.
+source:
+  provider: Project Gutenberg
+  identifier: "3623"
+  url: https://www.gutenberg.org/ebooks/3623
+  fetch_url: https://raw.githubusercontent.com/GITenberg/The-Golden-Bough-A-Study-of-Magic-and-Religion_3623/master/3623-8.txt
+  encoding: latin1
+  provider_subjects: ["Mythology", "Superstition", "Magic", "Religion"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Abridged edition published before 1931; author died 1941 (also out of copyright in life+70 jurisdictions since 2012).
+  - component: edition
+    status: public_domain_us
+    confidence: medium
+    basis: Volunteer transcription; source edition identified from internal evidence only.
+structure:
+  body_start: "^Preface$"
+  heading: "^(Preface|[IVXL]+\\. .+)$"
+  subheading: "^\\d+\\. .+$"
+related:
+  - { slug: the-book-of-the-dead }
+  - { slug: lives-of-the-necromancers }
+  - { slug: the-superstitions-of-witchcraft }

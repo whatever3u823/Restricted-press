@@ -1,0 +1,67 @@
+accession: 1
+slug: a-treatise-of-witchcraft
+title: A Treatise of Witchcraft
+subtitle: Wherein sundry Propositions are laid downe, plainely discouering the wickednesse of that damnable Art
+authors: [{ slug: alexander-roberts }]
+category: witchcraft
+subjects: [demonology, witch-trials, early-modern-england]
+original_year: 1616
+original_year_basis: title_page
+original_language: English
+publication_status: published
+featured: true
+summary: >
+  A clergyman's treatise setting out, proposition by proposition, the nature
+  of witchcraft and the proofs of its reality, followed by an account of Mary
+  Smith of King's Lynn, "wife of Henry Smith Glouer", drawn from her
+  confession and from the examination of witnesses, and of her execution.
+historical_context: >
+  Published in London in 1616, in the reign of James I, whose own Daemonologie
+  (1597) had lent royal authority to belief in witchcraft. Roberts writes as a
+  minister addressing the mayor, recorder, aldermen and inhabitants of King's
+  Lynn, and pairs doctrinal argument with a local case. The transcription keeps
+  the original spelling — u for v, i for j — and the printer's abbreviations.
+archivist_notes: >
+  Read the dedicatory epistle first: it frames the treatise as a response to a
+  specific local prosecution. The propositions then move from definition
+  (what witchcraft is and who practises it) to justification of punishment.
+archivist_questions:
+  - How does Roberts define a witch, and what powers does he allow the Devil?
+  - What evidence against Mary Smith does the narrative rely on?
+  - How does Roberts justify the death penalty for witchcraft?
+edition:
+  label: First edition, London, 1616
+  publisher: Samuel Man
+  place: London
+  year: 1616
+  year_basis: title_page
+  imprint: "LONDON, Printed by N.O. for SAMVEL MAN, and are to be sold at his Shop in Pauls Church-yard at the signe of the Ball. 1616."
+source:
+  provider: Project Gutenberg
+  identifier: "17209"
+  url: https://www.gutenberg.org/ebooks/17209
+  fetch_url: https://raw.githubusercontent.com/GITenberg/A-Treatise-of-Witchcraft_17209/master/17209.txt
+  encoding: latin1
+  provider_subjects: ["Witchcraft -- Early works to 1800"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Published 1616; author died 1620.
+  - component: edition
+    status: public_domain_us
+    confidence: high
+    basis: Volunteer transcription of a public-domain text; the provider records it as "Public domain in the USA".
+    notes: The provider's trademark terms require its name and licence to be removed from redistributed copies; this was done at ingestion.
+structure:
+  body_start: "^¶ To the right Worshipful"
+  heading: "^(¶ To the right Worshipful|To the Reader\\.|A true Narration|(¶ )?_The (first|second|third|fourth|fifth|sixt|seuenth|eight|ninth) Proposition)"
+related:
+  - { slug: letters-on-demonology-and-witchcraft, note: Scott surveys the same Jacobean climate of belief two centuries later. }
+  - { slug: a-history-of-witchcraft-in-england, note: Notestein's history of English prosecutions, 1558–1718. }
+  - { slug: elizabethan-demonology }
+physical_edition:
+  name: Restricted Edition — A Treatise of Witchcraft (1616)
+  status: planned
+  description: Newly typeset from the 1616 text with original spelling preserved, sewn binding, and a facsimile of the title page.
+  price_cents: 3995

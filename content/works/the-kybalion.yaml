@@ -1,0 +1,62 @@
+accession: 6
+slug: the-kybalion
+title: The Kybalion
+subtitle: A Study of the Hermetic Philosophy of Ancient Egypt and Greece
+authors: [{ slug: three-initiates }]
+category: esoterica
+subjects: [hermeticism]
+original_year: 1908
+original_year_basis: curatorial
+original_language: English
+publication_status: published
+featured: true
+summary: >
+  A compact exposition of seven "Hermetic Principles" — Mentalism,
+  Correspondence, Vibration, Polarity, Rhythm, Cause and Effect, and Gender —
+  presented as the teaching of Hermes Trismegistus, with each chapter glossing
+  axioms quoted from a work the authors call "The Kybalion".
+historical_context: >
+  Published in Chicago by the Yogi Publication Society under the pseudonym
+  "Three Initiates" and dedicated to Hermes Trismegistus. It belongs to the
+  American New Thought movement of the early twentieth century as much as to
+  older Hermetic literature, and has been continuously reprinted since.
+archivist_notes: >
+  The source of the "Kybalion" axioms is not documented outside this book.
+  Compare its Hermeticism with the older alchemical and Rosicrucian material in
+  Silberer (FILE 0004) and Muir (FILE 0011).
+archivist_questions:
+  - What are the seven Hermetic Principles?
+  - What does The Kybalion mean by "mental transmutation"?
+  - How does The Kybalion describe "The All"?
+edition:
+  label: Yogi Publication Society text (copyright 1912), from a later reprint
+  publisher: The Yogi Publication Society
+  place: Chicago
+  year: 1912
+  year_basis: title_page
+  imprint: "COPYRIGHT 1912 / ORIGINALLY PUBLISHED BY THE YOGI PUBLICATION SOCIETY / MASONIC TEMPLE / CHICAGO, ILLINOIS"
+  notes: The transcribed title page carries an ISBN (0 911662-25-1), indicating that the transcription was made from a modern reprint of the 1912 text.
+source:
+  provider: Project Gutenberg
+  identifier: "14209"
+  url: https://www.gutenberg.org/ebooks/14209
+  fetch_url: https://raw.githubusercontent.com/GITenberg/The-KybalionA-Study-of-The-Hermetic-Philosophy-of-Ancient-Egypt-and-Greece_14209/master/14209.txt
+  provider_subjects: ["Hermetism", "Occultism"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Text published in the United States before 1931 (title page states copyright 1912).
+  - component: edition
+    status: public_domain_us
+    confidence: medium
+    basis: Transcribed from a modern reprint of the 1912 text.
+    notes: Check the reprint for added matter (publisher's notes, cover copy) before any physical edition.
+structure:
+  body_start: "^INTRODUCTION$"
+  heading: "^(INTRODUCTION|CHAPTER [IVX]+)$"
+  heading_title_next: true
+related:
+  - { slug: hidden-symbolism-of-alchemy }
+  - { slug: the-rosicrucian-mysteries }
+  - { slug: simon-magus }

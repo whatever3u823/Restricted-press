@@ -1,0 +1,55 @@
+accession: 16
+slug: simon-magus
+title: Simon Magus
+subtitle: An Essay on the Founder of Simonianism Based on the Ancient Sources with a Re-evaluation of His Philosophy and Teachings
+authors: [{ slug: grs-mead }]
+category: esoterica
+subjects: [gnosticism, theosophy, hermeticism]
+original_year: 1892
+original_year_basis: curatorial
+original_language: English
+publication_status: published
+summary: >
+  Mead gathers the patristic and legendary sources on Simon, the magician
+  rebuked by Peter in Acts, reviews the scholarly authorities, and then attempts
+  to reconstruct "the Theosophy of Simon" as a serious Gnostic philosophy.
+historical_context: >
+  Mead was secretary to Helena Blavatsky and a leading scholar within the
+  Theosophical Society. This early essay anticipates his later translations of
+  Gnostic and Hermetic texts, and is characteristic of the Theosophical project
+  of recovering heretics as bearers of an ancient wisdom.
+archivist_notes: >
+  Part I (Sources of Information) collects the ancient testimony and is the
+  most useful for research; Part III is Mead's own interpretation.
+archivist_questions:
+  - What do the ancient sources say about Simon Magus?
+  - How does Mead reconstruct Simon's philosophy?
+  - What is the legend of Simon's flight at Rome?
+edition:
+  label: Text as transcribed (undated)
+  year_basis: unknown
+  notes: The transcription carries no title-page imprint.
+source:
+  provider: Project Gutenberg
+  identifier: "12892"
+  url: https://www.gutenberg.org/ebooks/12892
+  fetch_url: https://raw.githubusercontent.com/GITenberg/Simon-Magus--13-An-Essay-on-the-Founder-of-Simonianism-Based-on-the-Ancient-Sources-With-a-Re__12892/master/12892.txt
+  encoding: latin1
+  provider_subjects: ["Simon, Magus, active 1st century"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Published before 1931; author died 1933.
+  - component: edition
+    status: public_domain_us
+    confidence: medium
+    basis: Volunteer transcription; source edition not identified in the transcription.
+structure:
+  body_start: "^INTRODUCTION\\.$"
+  heading: "^(INTRODUCTION\\.|PART [IVX]+\\.)$"
+  subheading: "^FOOTNOTES:$"
+  heading_title_next: true
+related:
+  - { slug: the-kybalion }
+  - { slug: lives-of-the-necromancers }

@@ -1,0 +1,63 @@
+accession: 5
+slug: the-private-diary-of-dr-john-dee
+title: The Private Diary of Dr. John Dee
+subtitle: and the Catalogue of His Library of Manuscripts
+authors:
+  - { slug: john-dee }
+  - { slug: james-orchard-halliwell, role: editor }
+category: magic
+subjects: [diaries-manuscripts, astrology, renaissance-magic, early-modern-england]
+original_language: English
+publication_status: published
+access_level: inner
+featured: true
+summary: >
+  Dee's own terse diary entries — births, debts, dreams, visitors, weather,
+  journeys and quarrels — printed from the manuscripts, with the catalogue
+  of the manuscripts in his library. The most private document in the archive.
+historical_context: >
+  Edited by James Orchard Halliwell from manuscripts in the Ashmolean Museum at
+  Oxford and Trinity College Library, Cambridge, and printed for the Camden
+  Society in 1842. The diary shows the scholar-magician in domestic scale; the
+  transcription preserves Dee's occasional use of Greek letters to write
+  English words.
+archivist_notes: >
+  Entries are brief and often cryptic. Search for names (Kelley, the Queen),
+  for places (Mortlake), or for words like "dreamed".
+archivist_questions:
+  - What does Dee record about Edward Kelley?
+  - What does Dee's diary say about his dreams?
+  - What does the diary reveal about Dee's relationship with Queen Elizabeth?
+edition:
+  label: Camden Society, No. XIX, 1842, edited by James Orchard Halliwell
+  publisher: Camden Society
+  place: London
+  year: 1842
+  year_basis: title_page
+  imprint: "London: Printed for the Camden Society, by John Bowyer Nichols and Son, Parliament Street. M.DCCC.XLII. (No. XIX.)"
+source:
+  provider: Project Gutenberg
+  identifier: "19553"
+  url: https://www.gutenberg.org/ebooks/19553
+  fetch_url: https://raw.githubusercontent.com/GITenberg/The-Private-Diary-of-Dr.-John-DeeAnd-the-Catalog-of-His-Library-of-Manuscripts_19553/master/19553-0.txt
+  provider_subjects: ["Dee, John, 1527-1608 -- Diaries", "Manuscripts, English -- England -- Oxford -- Catalogs"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Sixteenth-century manuscript diary; Dee died 1608.
+  - component: annotations
+    status: public_domain_us
+    confidence: high
+    basis: Editorial matter by Halliwell, published 1842; editor died 1889.
+  - component: edition
+    status: public_domain_us
+    confidence: high
+    basis: Volunteer transcription of a public-domain text; the provider records it as "Public domain in the USA".
+structure:
+  body_start: "^PREFACE\\.$"
+  heading: "^(PREFACE\\.|DR\\. DEE’S DIARY\\.|CATALOGUS|A CATALOGUE OF SUCH OF DR\\. DEE’S MSS\\..*|OTHER MANUSCRIPTS\\.|INDEX TO THE DIARY\\.)$"
+  end_at: "^FINIS\\.$"
+related:
+  - { slug: lives-of-the-necromancers, note: Godwin's life of "Doctor Dee". }
+  - { slug: elizabethan-demonology }

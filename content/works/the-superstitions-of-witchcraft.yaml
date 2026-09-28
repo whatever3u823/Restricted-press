@@ -1,0 +1,56 @@
+accession: 12
+slug: the-superstitions-of-witchcraft
+title: The Superstitions of Witchcraft
+authors: [{ slug: howard-williams }]
+category: witchcraft
+subjects: [demonology, witch-trials, folklore]
+original_year: 1865
+original_year_basis: title_page
+original_language: English
+publication_status: published
+summary: >
+  A review of witchcraft belief across three ages — "earlier", "mediaeval" and
+  "modern" faith — from classical sorcery through the demonology of the Church
+  to the great persecutions of the sixteenth and seventeenth centuries.
+historical_context: >
+  Published in London by Longman in 1865. The preface frames witchcraft as a
+  creed that "in the seventeenth century was a living and lively faith", and
+  the book is a Victorian attempt at a complete natural history of that faith.
+archivist_notes: >
+  The three-part structure makes this the archive's best overview; use it
+  before the specialist histories.
+archivist_questions:
+  - How did belief in witchcraft change from antiquity to the seventeenth century?
+  - What powers were witches believed to possess?
+  - How does Williams explain the persecutions?
+edition:
+  label: London, Longman, 1865
+  publisher: Longman, Green, Longman, Roberts, & Green
+  place: London
+  year: 1865
+  year_basis: title_page
+source:
+  provider: Project Gutenberg
+  identifier: "22822"
+  url: https://www.gutenberg.org/ebooks/22822
+  fetch_url: https://raw.githubusercontent.com/GITenberg/The-Superstitions-of-Witchcraft_22822/master/22822.txt
+  encoding: latin1
+  provider_subjects: ["Witchcraft"]
+rights:
+  - component: text
+    status: public_domain_us
+    confidence: high
+    basis: Published 1865.
+  - component: edition
+    status: public_domain_us
+    confidence: high
+    basis: Volunteer transcription of a public-domain text; the provider records it as "Public domain in the USA".
+structure:
+  body_start: "^PART I\\.$"
+  body_start_occurrence: 2
+  heading: "^PART [IVX]+\\.$"
+  heading_title_next: true
+  subheading: "^CHAPTER [IVX]+\\.$"
+related:
+  - { slug: letters-on-demonology-and-witchcraft }
+  - { slug: a-history-of-witchcraft-in-england }
