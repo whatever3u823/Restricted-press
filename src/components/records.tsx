@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { classMark, fileNo, type AuthorRef, type RightsSummary, type WorkListItem, yearLabel } from "@/lib/archive";
+import { fileNo, type AuthorRef, type RightsSummary, type WorkListItem, yearLabel } from "@/lib/archive";
 
 export function Byline({ authors, linked = true }: { authors: AuthorRef[]; linked?: boolean }) {
   const primary = authors.filter((a) => a.role === "author" || a.role === "editor");
@@ -70,12 +70,7 @@ export function SectionTitle({ title }: { title: string }) {
 export function RecordRow({ item, note }: { item: WorkListItem; note?: React.ReactNode }) {
   return (
     <li className="record-row">
-      <div className="record-row__file">
-        <span className="file-no">{fileNo(item.accession)}</span>
-        <span className="class-mark" style={{ display: "block", marginTop: 6 }}>
-          {classMark(item)}
-        </span>
-      </div>
+      <div className="record-row__file file-no">{fileNo(item.accession)}</div>
       <div>
         <h3 className="record-row__title">
           <Link href={`/archive/${item.slug}`}>{item.title}</Link>

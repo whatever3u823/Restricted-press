@@ -58,9 +58,6 @@ structure:
   body_start: "^PREFACE\\.$"
   heading: "^(PREFACE\\.|DR\\. DEE’S DIARY\\.|CATALOGUS|A CATALOGUE OF SUCH OF DR\\. DEE’S MSS\\..*|OTHER MANUSCRIPTS\\.|INDEX TO THE DIARY\\.)$"
   end_at: "^FINIS\\.$"
-plates:
-  - path: /plates/the-private-diary-of-dr-john-dee/camden-device.jpg
-    caption: "Device of the Camden Society, from the title page (1842)."
 related:
   - { slug: lives-of-the-necromancers, note: Godwin's life of "Doctor Dee". }
   - { slug: elizabethan-demonology }

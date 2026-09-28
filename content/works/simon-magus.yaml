@@ -50,9 +50,6 @@ structure:
   heading: "^(INTRODUCTION\\.|PART [IVX]+\\.)$"
   subheading: "^FOOTNOTES:$"
   heading_title_next: true
-plates:
-  - path: /plates/simon-magus/aeonology.jpg
-    caption: "“Diagram of the Simonian Aeonology.”"
 related:
   - { slug: the-kybalion }
   - { slug: lives-of-the-necromancers }

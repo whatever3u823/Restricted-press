@@ -4,7 +4,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PassageTools } from "@/components/passage-tools";
 import { ReaderSize } from "@/components/reader-size";
-import { Ornament } from "@/components/period";
 import { Emph, SectionTitle } from "@/components/records";
 import { db } from "@/db";
 import { savedPassages } from "@/db/schema";
@@ -143,7 +142,6 @@ export default async function ReaderPage({ params, searchParams }: { params: Par
               <h1>
                 <SectionTitle title={text.section.title} />
               </h1>
-              <Ornament />
             </header>
 
             {text.passages.map((p) => {

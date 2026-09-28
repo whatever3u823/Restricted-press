@@ -54,34 +54,6 @@ export function summariseRights(rows: { status: string; confidence: "high" | "me
   return { label: "Licensed", tone: "clear", confidence };
 }
 
-const SHELF_CODE: Record<string, string> = {
-  witchcraft: "WIT",
-  alchemy: "ALC",
-  esoterica: "ESO",
-  magic: "MAG",
-  mysticism: "MYS",
-  "ancient-religion": "ANC",
-  "secret-societies": "SOC",
-};
-
-/**
- * The archive's class mark (call number): shelf · date · author mark.
- * e.g. "WIT 1616 .R64" — shelf code, year of first publication, and a
- * Cutter-style mark from the first author's surname.
- */
-export function classMark(item: Pick<WorkListItem, "category" | "originalYear" | "authors">) {
-  const shelf = SHELF_CODE[item.category?.slug ?? ""] ?? "GEN";
-  const person = item.authors.find((a) => a.role === "author" || a.role === "editor") ?? item.authors[0];
-  const surname = (person?.name ?? "Anon").replace(/^Sir /, "").split(" ").slice(-1)[0].replace(/[^A-Za-z]/g, "");
-  const cutter = surname ? `${surname[0].toUpperCase()}${cutterDigits(surname.slice(1))}` : "A00";
-  return `${shelf} ${item.originalYear ?? "n.d."} .${cutter}`;
-}
-function cutterDigits(rest: string) {
-  const r = rest.toLowerCase();
-  const d = (c?: string) => (c ? Math.min(9, Math.max(1, Math.floor(((c.charCodeAt(0) - 97) / 26) * 9) + 1)) : 1);
-  return `${d(r[0])}${d(r[1])}`;
-}
-
 export function yearLabel(year: number | null, basis?: string | null) {
   if (!year) return "Undated";
   return basis === "curatorial" ? `c. ${year}` : String(year);
