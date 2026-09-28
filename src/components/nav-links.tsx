@@ -8,8 +8,7 @@ const LINKS = [
   { n: "01", href: "/archive", label: "Archive" },
   { n: "02", href: "/collections", label: "Collections" },
   { n: "03", href: "/archivist", label: "Archivist" },
-  { n: "04", href: "/editions", label: "Editions" },
-  { n: "05", href: "/membership", label: "Access" },
+  { n: "04", href: "/membership", label: "Access" },
 ];
 
 export function NavLinks({ account }: { account: { label: string; href: string } }) {

@@ -87,9 +87,9 @@ export async function cancelDevMembership(): Promise<ActionResult> {
 
 export type RequestResult = { ok: true; reference: string } | { ok: false; message: string };
 
-/** File a request with the archive: a title to accession, or edition interest. */
+/** File a request for a title to accession. */
 export async function fileRequest(input: {
-  kind: "title" | "edition";
+  kind: "title";
   title: string;
   author?: string;
   notes?: string;

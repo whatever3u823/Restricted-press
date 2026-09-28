@@ -12,7 +12,6 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
-import { InkFilter } from "@/components/period";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SITE } from "@/lib/config";
@@ -31,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <InkFilter />
+        
         <a className="skip-link" href="#main">
           Skip to content
         </a>

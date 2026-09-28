@@ -1,10 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
-import { BookCover, FileCard, IndexHead, InkStamp } from "@/components/period";
+import { BookCover, FileCard, IndexHead } from "@/components/period";
 import { RequestForm } from "@/components/request-form";
 import { db } from "@/db";
 import { subjects } from "@/db/schema";
-import { fileNo, getFacets, getFeatured, getStats, listWorks, passageRef } from "@/lib/archive";
+import { getFacets, getFeatured, getStats, passageRef } from "@/lib/archive";
 import { archivistConfigured } from "@/lib/archivist";
 import { markedSnippet } from "@/lib/html";
 import { retriever } from "@/lib/search/retriever";
@@ -16,19 +16,17 @@ export const dynamic = "force-dynamic";
 const SAMPLE_QUESTION = "What did accused witches confess about the Devil's mark?";
 
 export default async function Home() {
-  const [stats, featured, facets, sample, viewer, categories, all] = await Promise.all([
+  const [stats, featured, facets, sample, viewer, categories] = await Promise.all([
     getStats(),
     getFeatured(8),
     getFacets(),
     retriever.retrieve({ concepts: toConcepts(SAMPLE_QUESTION, true), limit: 4, perWorkCap: 1 }),
     getViewer(),
     db.select().from(subjects).where(eq(subjects.kind, "category")).orderBy(asc(subjects.name)),
-    listWorks(),
   ]);
   const llm = archivistConfigured();
   const counts = new Map(facets.categories.map((c) => [c.slug, c.n]));
   const collections = categories.filter((c) => counts.get(c.slug));
-  const editionFile = all.find((w) => w.edition);
   const stack = featured.slice(0, 3);
 
   return (
@@ -63,9 +61,6 @@ export default async function Home() {
             {stack.map((w) => (
               <BookCover key={w.id} item={w} />
             ))}
-            <InkStamp sub={fileNo(stack[stack.length - 1]?.accession ?? 1)} tilt={-7}>
-              Archive copy
-            </InkStamp>
           </div>
         </div>
       </section>
@@ -246,65 +241,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 05 Restricted editions ── */}
+      {/* ── 05 Request a title ── */}
       <section className="band">
         <div className="wrap">
-          <IndexHead
-            no="05"
-            title="Restricted Editions"
-            aside={
-              <Link href="/editions" className="link-arrow">
-                The editions
-              </Link>
-            }
-          />
-          <div className="split">
-            {editionFile ? (
-              <Link href={`/editions/${editionFile.slug}`} className="cover-link" style={{ maxWidth: 300, width: "100%", justifySelf: "center" }}>
-                <BookCover item={editionFile} />
-              </Link>
-            ) : (
-              <div />
-            )}
-            <div>
-              <h2 className="title-l">The artifact the institution produces.</h2>
-              <p className="lede mt-3" style={{ maxWidth: "40ch" }}>
-                Selected files are issued as physical editions — restored from the historical source, newly typeset,
-                and bound to be kept.
-              </p>
-              <dl className="edition-spec mt-4">
-                <div>
-                  <dt>Source</dt>
-                  <dd>Archive copy · historical edition</dd>
-                </div>
-                <div>
-                  <dt>Text</dt>
-                  <dd>Restored · original spelling preserved</dd>
-                </div>
-                <div>
-                  <dt>Production</dt>
-                  <dd>Professionally typeset · printed on demand</dd>
-                </div>
-                {editionFile ? (
-                  <div>
-                    <dt>First edition</dt>
-                    <dd className="red">
-                      <Link href={`/editions/${editionFile.slug}`} style={{ textDecoration: "none" }}>
-                        {fileNo(editionFile.accession)} · {editionFile.title} →
-                      </Link>
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 06 Request a title ── */}
-      <section className="band">
-        <div className="wrap">
-          <IndexHead no="06" title="Request a title" />
+          <IndexHead no="05" title="Request a title" />
           <div className="split" style={{ alignItems: "start" }}>
             <div>
               <h2 className="title-l" style={{ maxWidth: "18ch" }}>

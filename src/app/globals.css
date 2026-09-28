@@ -195,9 +195,6 @@ button { font: inherit; color: inherit; }
 .stamp--solid { background: var(--red-deep); border-color: var(--red-deep); color: #f3ece0; }
 .stamp--brass { color: var(--ink); }
 .stamp--large { font-size: 11px; padding: 6px 12px 5px; letter-spacing: 0.22em; }
-.ink-stamp { display: inline-grid; place-items: center; gap: 3px; padding: 9px 16px 8px; border: 2px solid currentColor; outline: 1px solid currentColor; outline-offset: 3px; color: var(--red); font-family: var(--mono); font-weight: 600; font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase; line-height: 1.1; text-align: center; transform: rotate(var(--tilt, -5deg)); filter: url(#rp-ink); opacity: 0.9; pointer-events: none; user-select: none; }
-.ink-stamp small { font-size: 9.5px; letter-spacing: 0.14em; font-weight: 500; }
-.ink-stamp--ivory { color: var(--ink); }
 .tag { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); text-decoration: none; padding: 5px 10px 4px; border: 1px solid var(--rule-2); white-space: nowrap; }
 a.tag:hover { border-color: var(--red); color: var(--ink); }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -397,7 +394,6 @@ mark { background: transparent; color: inherit; box-shadow: inset 0 -0.42em 0 va
 /* ─── Dossier: the classified file ─── */
 .file-head { display: grid; grid-template-columns: minmax(200px, 290px) minmax(0, 1fr); gap: clamp(32px, 5vw, 80px); align-items: start; padding-bottom: clamp(40px, 5vw, 64px); }
 .file-head__cover { position: relative; }
-.file-head__cover .ink-stamp { position: absolute; right: -34px; bottom: 20%; z-index: 2; background: rgba(14, 13, 11, 0.6); }
 .file-head__kicker { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
 .file-head__title { font-family: var(--display); font-size: clamp(2.3rem, 5vw, 4.2rem); line-height: 1; text-transform: uppercase; letter-spacing: 0; margin-top: 18px; max-width: 18ch; }
 .file-head__sub { margin-top: 14px; font-family: var(--serif); font-style: italic; font-size: 1.2rem; color: var(--ink-2); max-width: 52ch; }
@@ -413,7 +409,6 @@ mark { background: transparent; color: inherit; box-shadow: inset 0 -0.42em 0 va
 @media (max-width: 860px) {
   .file-head { grid-template-columns: minmax(0, 1fr); }
   .file-head__cover { max-width: 210px; }
-  .file-head__cover .ink-stamp { right: -70px; }
   .file-head__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .dossier { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: clamp(40px, 5vw, 80px); align-items: start; border-top: 1px solid var(--rule-2); }
@@ -473,7 +468,6 @@ mark { background: transparent; color: inherit; box-shadow: inset 0 -0.42em 0 va
 .archival-note { font-family: var(--serif); font-style: italic; font-size: 1.2rem; line-height: 1.55; color: var(--ink-2); border-left: 1px solid var(--red); padding-left: 20px; }
 .redacted-doc { position: relative; display: grid; gap: 12px; padding: 30px 28px; background: var(--bg-2); border: 1px solid var(--rule-2); }
 .redacted-doc span { display: block; height: 11px; background: #050504; box-shadow: inset 0 0 0 1px #2a2622; }
-.redacted-doc .ink-stamp { position: absolute; right: 26px; top: 22px; background: rgba(22, 20, 17, 0.85); }
 
 /* ─── Reader: the reading room ─── */
 .reader-toolbar { position: sticky; top: 64px; z-index: 20; background: rgba(14, 13, 11, 0.97); border-bottom: 1px solid var(--rule-2); }
@@ -633,7 +627,6 @@ mark { background: transparent; color: inherit; box-shadow: inset 0 -0.42em 0 va
 .hero__stack .cover:nth-child(1) { left: 0; top: 10%; transform: rotate(-5deg); }
 .hero__stack .cover:nth-child(2) { left: 21%; top: 2%; transform: rotate(1.5deg); z-index: 1; }
 .hero__stack .cover:nth-child(3) { right: 0; top: 14%; transform: rotate(6deg); z-index: 2; }
-.hero__stack .ink-stamp { position: absolute; left: -4%; bottom: 4%; z-index: 3; background: rgba(14, 13, 11, 0.7); }
 @media (max-width: 900px) {
   .hero__grid { grid-template-columns: minmax(0, 1fr); }
   .hero__stack { justify-self: center; max-width: 340px; }
@@ -679,12 +672,6 @@ mark { background: transparent; color: inherit; box-shadow: inset 0 -0.42em 0 va
   .tiers { grid-template-columns: minmax(0, 1fr); }
   .tier + .tier { border-left: 0; border-top: 1px solid var(--rule-2); }
 }
-.edition-spec { display: grid; border-top: 1px solid var(--rule-strong); margin: 0; }
-.edition-spec > div { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
-.edition-spec dt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
-.edition-spec dd { margin: 0; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; }
-.edition-spec dd.red { color: var(--red); }
-@media (max-width: 560px) { .edition-spec > div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
 .numbered { list-style: none; margin: 0; padding: 0; counter-reset: n; }
 .numbered li { counter-increment: n; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 18px 0; border-top: 1px solid var(--rule-2); }
 .numbered li::before { content: counter(n, decimal-leading-zero); font-family: var(--mono); font-size: 11px; color: var(--red); padding-top: 5px; }

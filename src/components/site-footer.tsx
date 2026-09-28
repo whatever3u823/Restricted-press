@@ -37,7 +37,6 @@ export function SiteFooter() {
         <div>
           <span className="label label--red">03 · Institution</span>
           <ul>
-            <li><Link href="/editions">Restricted Editions</Link></li>
             <li><Link href="/membership">Access levels</Link></li>
             <li><Link href="/about">About the Press</Link></li>
             <li><Link href="/about#provenance">Provenance &amp; rights</Link></li>

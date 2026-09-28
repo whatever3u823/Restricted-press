@@ -38,7 +38,7 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
 
       <section className="page-head__row" style={{ alignItems: "end" }}>
         <div>
-          <span className="file-no">Instrument 05 · Access</span>
+          <span className="file-no">Instrument 04 · Access</span>
           <h1 className="title-xl mt-2">Access levels</h1>
           <p className="lede mt-3" style={{ maxWidth: "44ch" }}>
             The archive is open to the public. The Inner Archive is for readers who mean to work in it: unlimited

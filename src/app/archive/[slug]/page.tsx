@@ -2,13 +2,12 @@ import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookCover, InkStamp } from "@/components/period";
+import { BookCover } from "@/components/period";
 import { Confidence, DraftFlag, SectionTitle } from "@/components/records";
 import { SaveRecord } from "@/components/save-record";
 import { db } from "@/db";
 import { savedWorks } from "@/db/schema";
-import { accessLabel, editionNumber, fileNo, getDossier, lifeDates, yearLabel } from "@/lib/archive";
-import { formatPrice } from "@/lib/config";
+import { accessLabel, fileNo, getDossier, lifeDates, yearLabel } from "@/lib/archive";
 import { getViewer } from "@/lib/viewer";
 
 type Params = Promise<{ slug: string }>;
@@ -45,7 +44,7 @@ export default async function DossierPage({ params }: { params: Params }) {
   const d = await getDossier(slug);
   if (!d) notFound();
   const viewer = await getViewer();
-  const { work, item, edition, source, rights, sections, related, physical, authorDetails } = d;
+  const { work, item, edition, source, rights, sections, related, authorDetails } = d;
 
   const withheld = work.publicationStatus !== "published";
   const innerLocked = work.accessLevel === "inner" && !viewer.can("text.inner");
@@ -55,28 +54,9 @@ export default async function DossierPage({ params }: { params: Params }) {
     ? (await db.select().from(savedWorks).where(and(eq(savedWorks.userId, viewer.user.id), eq(savedWorks.workId, work.id))).limit(1)).length > 0
     : false;
   const draft = work.contentStatus !== "reviewed";
-  const editionNo = physical ? await editionNumber(work.id) : null;
 
   let n = 0;
   const num = () => String(++n).padStart(2, "0");
-
-  const stamp = withheld ? (
-    <InkStamp sub="Pending rights review" tilt={-8}>
-      Restricted
-    </InkStamp>
-  ) : work.accessLevel === "inner" ? (
-    <InkStamp sub="Inner Archive" tilt={-6}>
-      Restricted
-    </InkStamp>
-  ) : physical ? (
-    <InkStamp sub={`RP / ${editionNo}`} tilt={-6}>
-      Restored
-    </InkStamp>
-  ) : (
-    <InkStamp sub={fileNo(work.accession)} tilt={-6}>
-      Archive copy
-    </InkStamp>
-  );
 
   return (
     <div className="wrap">
@@ -94,14 +74,13 @@ export default async function DossierPage({ params }: { params: Params }) {
         <div className="file-head mt-6">
           <div className="file-head__cover fade-in">
             <BookCover item={item} />
-            {stamp}
           </div>
           <div className="reveal">
             <div className="file-head__kicker">
               <span className="file-no" style={{ fontSize: 13 }}>
                 {fileNo(work.accession)}
               </span>
-              <span className="label">{physical ? "Restricted Edition" : "Archive file"}</span>
+              <span className="label">Archive file</span>
               {draft ? <DraftFlag>Curatorial draft</DraftFlag> : null}
             </div>
             <h1 className="file-head__title">{work.title}</h1>
@@ -130,8 +109,8 @@ export default async function DossierPage({ params }: { params: Params }) {
                 <dd>{source ? `${source.provider}${source.identifier ? ` #${source.identifier}` : ""}` : "Not recorded"}</dd>
               </div>
               <div>
-                <dt>Edition</dt>
-                <dd className={physical ? "red" : undefined}>{physical ? `Restricted Press / ${editionNo}` : "Archive copy"}</dd>
+                <dt>Printed</dt>
+                <dd>{edition ? [edition.place, edition.year].filter(Boolean).join(", ") || "Not recorded" : "Not recorded"}</dd>
               </div>
               <div>
                 <dt>Year</dt>
@@ -169,11 +148,6 @@ export default async function DossierPage({ params }: { params: Params }) {
               ) : readHref ? (
                 <Link href={readHref} className="btn">
                   Read the text
-                </Link>
-              ) : null}
-              {physical ? (
-                <Link href={`/editions/${slug}`} className="btn btn--accent">
-                  Order the edition
                 </Link>
               ) : null}
               {!withheld ? (
@@ -322,9 +296,6 @@ export default async function DossierPage({ params }: { params: Params }) {
                     {[92, 100, 76, 98, 64, 100, 88, 40].map((w, i) => (
                       <span key={i} style={{ width: `${w}%` }} />
                     ))}
-                    <InkStamp sub={fileNo(work.accession)} tilt={-6}>
-                      Withheld
-                    </InkStamp>
                   </div>
                   <p className="notice mt-3">
                     <strong>Text withheld pending rights review.</strong> The file remains in the catalogue so that it can
@@ -484,26 +455,6 @@ export default async function DossierPage({ params }: { params: Params }) {
                   </Link>
                 ))}
               </div>
-            </div>
-          ) : null}
-
-          {physical ? (
-            <div className="rail-block">
-              <h3>Restricted Edition · RP / {editionNo}</h3>
-              <p style={{ fontFamily: "var(--serif)", fontSize: "1.12rem", lineHeight: 1.25 }}>{physical.name}</p>
-              {physical.description ? <p className="meta mt-1">{physical.description}</p> : null}
-              <div className="spread mt-2">
-                <span className="stamp stamp--red">{physical.status === "available" ? "Available" : "In preparation"}</span>
-                {physical.priceCents ? (
-                  <span className="mono" style={{ fontSize: "1.05rem" }}>
-                    {formatPrice(physical.priceCents, physical.currency)}
-                    {physical.status !== "available" ? <span className="meta"> indicative</span> : null}
-                  </span>
-                ) : null}
-              </div>
-              <Link href={`/editions/${slug}`} className="link-arrow mt-3" style={{ display: "inline-block" }}>
-                View the edition
-              </Link>
             </div>
           ) : null}
         </aside>

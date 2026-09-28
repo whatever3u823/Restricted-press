@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { fileRequest } from "@/app/actions";
 
-/** File a request with the archive. Used for titles and for edition interest. */
+/** File a request for a title the archive does not yet hold. */
 export function RequestForm({
   kind,
   workId,
@@ -11,7 +11,7 @@ export function RequestForm({
   signedInEmail,
   submitLabel,
 }: {
-  kind: "title" | "edition";
+  kind: "title";
   workId?: number;
   presetTitle?: string;
   signedInEmail?: string | null;

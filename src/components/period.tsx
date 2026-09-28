@@ -1,10 +1,9 @@
 /**
- * The institution's visual vocabulary: bindings, ink stamps, file cards,
+ * The institution's visual vocabulary: bindings, file cards,
  * catalogue rows and numbered index heads. All data shown is real record data.
  */
 import Link from "next/link";
 import { accessLabel, fileNo, type WorkListItem, yearLabel } from "@/lib/archive";
-import { formatPrice } from "@/lib/config";
 import { Byline } from "./records";
 
 type CoverWork = Pick<WorkListItem, "accession" | "title" | "category" | "authors">;
@@ -37,40 +36,6 @@ export function BookCover({ item }: { item: CoverWork }) {
   );
 }
 
-export function InkStamp({
-  children,
-  sub,
-  tone = "red",
-  tilt = -5,
-}: {
-  children: React.ReactNode;
-  sub?: React.ReactNode;
-  tone?: "red" | "ivory";
-  tilt?: number;
-}) {
-  return (
-    <span className={`ink-stamp${tone === "ivory" ? " ink-stamp--ivory" : ""}`} style={{ ["--tilt" as string]: `${tilt}deg` }} aria-hidden="true">
-      {children}
-      {sub ? <small>{sub}</small> : null}
-    </span>
-  );
-}
-
-/** Roughens stamp edges like ink on paper. Rendered once, in the layout. */
-export function InkFilter() {
-  return (
-    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
-      <filter id="rp-ink" x="-10%" y="-20%" width="120%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.6" xChannelSelector="R" yChannelSelector="G" result="rough" />
-        <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="1" seed="9" result="blotch" />
-        <feColorMatrix in="blotch" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.1 1.45" result="mask" />
-        <feComposite in="rough" in2="mask" operator="in" />
-      </filter>
-    </svg>
-  );
-}
-
 /** Numbered section index: "02 / FEATURED FILES". */
 export function IndexHead({ no, title, aside }: { no: string; title: string; aside?: React.ReactNode }) {
   return (
@@ -80,11 +45,6 @@ export function IndexHead({ no, title, aside }: { no: string; title: string; asi
       {aside ? <span>{aside}</span> : <span />}
     </div>
   );
-}
-
-export function editionLabel(item: Pick<WorkListItem, "edition">) {
-  if (!item.edition) return "Archive copy";
-  return item.edition.status === "available" ? "Restricted edition" : "Restricted edition · in preparation";
 }
 
 /** A featured file: the binding is the centrepiece, the record sits beneath. */
@@ -104,17 +64,6 @@ export function FileCard({ item, i = 0 }: { item: WorkListItem; i?: number }) {
         <dl className="kv">
           <dt>Status</dt>
           <dd className={item.rights.tone === "clear" ? undefined : "red"}>{item.rights.label}</dd>
-          <dt>Edition</dt>
-          <dd className={item.edition ? "red" : undefined}>{editionLabel(item)}</dd>
-          {item.edition?.priceCents ? (
-            <>
-              <dt>Price</dt>
-              <dd>
-                {formatPrice(item.edition.priceCents, item.edition.currency)}
-                {item.edition.status !== "available" ? " · indicative" : ""}
-              </dd>
-            </>
-          ) : null}
           <dt>Access</dt>
           <dd>{accessLabel(item)}</dd>
         </dl>
@@ -154,7 +103,6 @@ export function CatalogRow({ item, note }: { item: WorkListItem; note?: string }
         <span className={`stamp${item.rights.tone === "clear" ? "" : " stamp--red"}`}>{item.rights.label}</span>
         <span style={{ color: item.accessLevel === "inner" || item.publicationStatus !== "published" ? "var(--red)" : undefined }}>
           {accessLabel(item)}
-          {item.edition ? " · Edition" : ""}
         </span>
       </span>
     </li>
