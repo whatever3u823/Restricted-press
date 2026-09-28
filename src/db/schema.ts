@@ -342,6 +342,8 @@ export const researchQueries = pgTable(
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
     /** Anonymous visitor id from a cookie, for visitors without accounts. */
     visitorId: text("visitor_id"),
+    /** Salted hash of the client address, so clearing cookies does not reset a visitor's quota. */
+    clientHash: text("client_hash"),
     question: text("question").notNull(),
     mode: text("mode").notNull(),
     response: jsonb("response").notNull(),
@@ -350,5 +352,6 @@ export const researchQueries = pgTable(
   (t) => [
     index("research_queries_user_idx").on(t.userId, t.createdAt),
     index("research_queries_visitor_idx").on(t.visitorId, t.createdAt),
+    index("research_queries_client_idx").on(t.clientHash, t.createdAt),
   ],
 );
