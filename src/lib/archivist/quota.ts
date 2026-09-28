@@ -12,7 +12,7 @@ export const VISITOR_COOKIE = "rp_vid";
 export function clientHash(headers: Headers) {
   const ip = headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown";
   return createHash("sha256")
-    .update(`${process.env.BETTER_AUTH_SECRET ?? ""}:${ip}`)
+    .update(`${process.env.BETTER_AUTH_SECRET ?? process.env.DATABASE_URL ?? ""}:${ip}`)
     .digest("hex")
     .slice(0, 32);
 }

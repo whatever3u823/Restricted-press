@@ -128,7 +128,7 @@ async function report(records: WorkRecord[]) {
 /* ──────────────────────────────── load ──────────────────────────────── */
 
 async function load(records: WorkRecord[]) {
-  const client = postgres(process.env.DATABASE_URL!, { max: 1, onnotice: () => {} });
+  const client = postgres((process.env.DATABASE_URL ?? process.env.POSTGRES_URL)!, { max: 1, onnotice: () => {} });
   const db = drizzle(client, { schema: s });
   const manifest = await readManifest();
 
