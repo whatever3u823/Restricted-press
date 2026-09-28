@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DraftFlag, RecordRow } from "@/components/records";
+import { CatalogRow } from "@/components/period";
+import { DraftFlag } from "@/components/records";
 import { getAuthor, lifeDates } from "@/lib/archive";
 
 type Params = Promise<{ slug: string }>;
@@ -24,8 +25,8 @@ export default async function AuthorPage({ params }: { params: Params }) {
           <Link href="/archive">The Archive</Link> <span>/</span> <Link href="/authors">Authors</Link> <span>/</span>
           <span>{author.sortName}</span>
         </nav>
-        <span className="label mt-4" style={{ display: "block" }}>
-          Person
+        <span className="file-no mt-4" style={{ display: "block" }}>
+          Name authority · Person
         </span>
         <h1 className="title-xl mt-1">{author.name}</h1>
         {lifeDates(author.birthYear, author.deathYear) ? <p className="lede mt-1">{lifeDates(author.birthYear, author.deathYear)}</p> : null}
@@ -43,12 +44,12 @@ export default async function AuthorPage({ params }: { params: Params }) {
       <div className="dossier">
         <section>
           <div className="section-head">
-            <h2>In the archive</h2>
-            <span className="label">{works.length} record{works.length === 1 ? "" : "s"}</span>
+            <h2>Files held</h2>
+            <span className="label">{works.length} file{works.length === 1 ? "" : "s"}</span>
           </div>
           <ul className="records">
             {works.map((w) => (
-              <RecordRow key={w.id} item={w} note={w.role !== "author" ? `${ROLE[w.role] ?? w.role} — ${w.summary ?? ""}` : undefined} />
+              <CatalogRow key={w.id} item={w} note={w.role !== "author" ? `${ROLE[w.role] ?? w.role} — ${w.summary ?? ""}` : undefined} />
             ))}
           </ul>
         </section>

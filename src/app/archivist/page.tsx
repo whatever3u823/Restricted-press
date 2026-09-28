@@ -44,11 +44,17 @@ export default async function ArchivistPage({ searchParams }: { searchParams: SP
         </nav>
       </header>
       <div className="archivist">
-        <span className="label">The Archivist</span>
-        <h1 className="title-xl mt-1">What are you looking for?</h1>
-        <p className="lede mt-2" style={{ maxWidth: "46ch" }}>
-          Ask in plain language. Answers are drawn only from the archive, with every source shown.
-        </p>
+        <div className="page-head__row">
+          <div>
+            <span className="file-no">Instrument 03 · Research terminal</span>
+            <h1 className="title-xl mt-2">The Archivist</h1>
+            <p className="label label--red mt-3">A research instrument for the restricted collection</p>
+          </div>
+          <p className="meta" style={{ maxWidth: "40ch" }}>
+            Put a question in plain language. The Archivist reads the archive passage by passage and answers only from
+            what it retrieves — every claim cited to file, section and paragraph.
+          </p>
+        </div>
         <ArchivistConsole
           initialQuestion={initialQuestion}
           autoRun={Boolean(sp.q || passage)}

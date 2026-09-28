@@ -7,8 +7,8 @@ export default function AboutPage() {
   return (
     <div className="wrap narrow">
       <header className="page-head">
-        <span className="label">About</span>
-        <h1 className="title-xl mt-1">An elite institution that happens to possess texts most people have forgotten exist.</h1>
+        <span className="file-no">Institution · Charter</span>
+        <h1 className="title-xl mt-2">An institution that happens to possess texts most people have forgotten exist.</h1>
       </header>
       <div className="prose stack" style={{ ["--stack" as string]: "1em" }}>
         <p>

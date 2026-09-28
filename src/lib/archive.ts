@@ -12,6 +12,18 @@ export const VISIBLE: s.PublicationStatus[] = ["published", "rights_review"];
 
 export const fileNo = (accession: number) => `FILE ${String(accession).padStart(4, "0")}`;
 
+/** "0017.003.0012" → "FILE 0017 / §03 / ¶12" */
+export function passageRef(id: string) {
+  const [acc, sec, par] = id.split(".");
+  return `FILE ${acc} / §${String(Number(sec)).padStart(2, "0")} / ¶${String(Number(par)).padStart(2, "0")}`;
+}
+
+/** Access wording used across the institution. */
+export function accessLabel(item: { accessLevel: string; publicationStatus: string }) {
+  if (item.publicationStatus !== "published") return "Withheld";
+  return item.accessLevel === "inner" ? "Inner Archive" : "Public";
+}
+
 export type AuthorRef = { slug: string; name: string; role: string };
 export type SubjectRef = { slug: string; name: string };
 
@@ -38,6 +50,8 @@ export type WorkListItem = {
   authors: AuthorRef[];
   subjects: SubjectRef[];
   rights: RightsSummary;
+  /** The Restricted Edition (physical) for this file, if one exists. */
+  edition: { status: string; priceCents: number | null; currency: string } | null;
 };
 
 const CONF_ORDER = { high: 2, medium: 1, low: 0 } as const;
@@ -63,7 +77,7 @@ export function yearLabel(year: number | null, basis?: string | null) {
 async function hydrate(rows: (typeof s.works.$inferSelect)[]): Promise<WorkListItem[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
-  const [authorRows, subjectRows, rightsRows, categories] = await Promise.all([
+  const [authorRows, subjectRows, rightsRows, categories, editionRows] = await Promise.all([
     db
       .select({ workId: s.workAuthors.workId, slug: s.authors.slug, name: s.authors.name, role: s.workAuthors.role })
       .from(s.workAuthors)
@@ -81,6 +95,15 @@ async function hydrate(rows: (typeof s.works.$inferSelect)[]): Promise<WorkListI
       .from(s.rightsRecords)
       .where(inArray(s.rightsRecords.workId, ids)),
     db.select({ id: s.subjects.id, slug: s.subjects.slug, name: s.subjects.name }).from(s.subjects).where(eq(s.subjects.kind, "category")),
+    db
+      .select({
+        workId: s.physicalEditions.workId,
+        status: s.physicalEditions.status,
+        priceCents: s.physicalEditions.priceCents,
+        currency: s.physicalEditions.currency,
+      })
+      .from(s.physicalEditions)
+      .where(inArray(s.physicalEditions.workId, ids)),
   ]);
   const cat = new Map(categories.map((c) => [c.id, { slug: c.slug, name: c.name }]));
   return rows.map((w) => ({
@@ -100,6 +123,10 @@ async function hydrate(rows: (typeof s.works.$inferSelect)[]): Promise<WorkListI
     authors: authorRows.filter((a) => a.workId === w.id),
     subjects: subjectRows.filter((x) => x.workId === w.id),
     rights: summariseRights(rightsRows.filter((r) => r.workId === w.id)),
+    edition: (() => {
+      const e = editionRows.find((r) => r.workId === w.id);
+      return e ? { status: e.status, priceCents: e.priceCents, currency: e.currency } : null;
+    })(),
   }));
 }
 
@@ -427,4 +454,11 @@ export function lifeDates(birth: number | null, death: number | null) {
   if (death) return `d. ${death}`;
   if (birth) return `b. ${birth}`;
   return null;
+}
+
+/** Restricted Press edition number ("001"): the order in which editions were commissioned. */
+export async function editionNumber(workId: number) {
+  const order = await db.select({ workId: s.physicalEditions.workId }).from(s.physicalEditions).orderBy(asc(s.physicalEditions.id));
+  const i = order.findIndex((o) => o.workId === workId);
+  return i >= 0 ? String(i + 1).padStart(3, "0") : null;
 }

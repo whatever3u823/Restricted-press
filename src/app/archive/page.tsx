@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { RecordRow } from "@/components/records";
-import { fileNo, getFacets, listWorks, type ArchiveFilters } from "@/lib/archive";
+import { CatalogRow } from "@/components/period";
+import { getFacets, listWorks, passageRef, type ArchiveFilters } from "@/lib/archive";
 import { markedSnippet } from "@/lib/html";
 import { retriever } from "@/lib/search/retriever";
 import { toConcepts } from "@/lib/search/vocabulary";
@@ -47,12 +47,15 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Restricted Press</Link> <span>/</span> <span>The Archive</span>
         </nav>
-        <div className="page-head__row mt-2">
-          <h1 className="title-xl">The Archive</h1>
-          <p className="meta">
-            {facets.categories.reduce((n, c) => n + c.n, 0)} records ·{" "}
+        <div className="page-head__row mt-3">
+          <div>
+            <span className="file-no">Catalogue · Archive 01</span>
+            <h1 className="title-xl mt-2">The Archive</h1>
+          </div>
+          <p className="class-mark" style={{ whiteSpace: "normal", textAlign: "right" }}>
+            {facets.categories.reduce((n, c) => n + c.n, 0)} FILES ·{" "}
             {Object.entries(facets.availability)
-              .map(([k, n]) => `${n} ${k === "full-text" ? "open" : k === "inner" ? "inner" : "withheld"}`)
+              .map(([k, n]) => `${n} ${k === "full-text" ? "PUBLIC" : k === "inner" ? "INNER ARCHIVE" : "WITHHELD"}`)
               .join(" · ")}
           </p>
         </div>
@@ -75,7 +78,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
         </form>
         <nav className="tabs mt-3" aria-label="Search scope">
           <Link href={href({ tab: undefined })} aria-current={tab === "records" ? "page" : undefined}>
-            Records
+            Files
           </Link>
           <Link href={href({ tab: "passages" })} aria-current={tab === "passages" ? "page" : undefined}>
             Passages — search inside the texts
@@ -84,6 +87,11 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
       </header>
 
       <div className="archive-layout">
+        <details className="filters-wrap" open>
+        <summary>
+          <span>Filter the catalogue</span>
+          <span className="file-no">{activeFilters.length ? `${activeFilters.length} active` : "All files"}</span>
+        </summary>
         <aside className="filters" aria-label="Filters">
           <FilterGroup
             legend="Shelf"
@@ -125,6 +133,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
             </Link>
           ) : null}
         </aside>
+        </details>
 
         <section aria-live="polite">
           {tab === "records" ? (
@@ -179,12 +188,12 @@ async function RecordsResults({ filters, sortLink }: { filters: ArchiveFilters; 
   const works = await listWorks(filters);
   return (
     <>
-      <div className="spread" style={{ paddingBottom: 10, borderBottom: "1px solid var(--rule-strong)" }}>
-        <span className="label label--ink">
-          {works.length} {works.length === 1 ? "record" : "records"}
+      <div className="results-bar">
+        <span>
+          {works.length} {works.length === 1 ? "file" : "files"}
           {filters.q ? ` matching “${filters.q}”` : ""}
         </span>
-        <span className="row meta" style={{ gap: 14 }}>
+        <span className="row" style={{ gap: 14 }}>
           Order:
           {(
             [
@@ -193,21 +202,31 @@ async function RecordsResults({ filters, sortLink }: { filters: ArchiveFilters; 
               ["title", "Title"],
             ] as const
           ).map(([k, label]) => (
-            <Link key={label} href={sortLink(k)} aria-current={filters.sort === k ? "true" : undefined} style={{ fontWeight: filters.sort === k ? 600 : 400 }}>
+            <Link key={label} href={sortLink(k)} aria-current={filters.sort === k ? "true" : undefined}>
               {label}
             </Link>
           ))}
         </span>
       </div>
       {works.length ? (
-        <ul className="records">
-          {works.map((w) => (
-            <RecordRow key={w.id} item={w} />
-          ))}
-        </ul>
+        <div>
+          <div className="catalog-head" aria-hidden="true">
+            <span>File no.</span>
+            <span />
+            <span>Title / author</span>
+            <span>Year</span>
+            <span>Subject</span>
+            <span>Status · access</span>
+          </div>
+          <ul className="records">
+            {works.map((w) => (
+              <CatalogRow key={w.id} item={w} />
+            ))}
+          </ul>
+        </div>
       ) : (
         <div className="empty">
-          <p>No records answer to that description.</p>
+          <p>No file answers to that description.</p>
           <p className="meta mt-2">
             Try fewer filters, or{" "}
             <Link href={`/archive?tab=passages${filters.q ? `&q=${encodeURIComponent(filters.q)}` : ""}`}>search inside the texts</Link>.
@@ -255,8 +274,8 @@ async function PassageResults({
 
   return (
     <>
-      <div className="spread" style={{ paddingBottom: 10, borderBottom: "1px solid var(--rule-strong)" }}>
-        <span className="label label--ink">
+      <div className="results-bar">
+        <span>
           Passages {shown.length ? `${(page - 1) * PAGE + 1}–${(page - 1) * PAGE + shown.length}` : ""} for “{q}”
         </span>
         {canExpand ? (
@@ -292,13 +311,13 @@ async function PassageResults({
             <article key={h.id} className="excerpt">
               <p className="excerpt__text" dangerouslySetInnerHTML={{ __html: markedSnippet(h.snippet) }} />
               <p className="excerpt__source">
-                <span className="file-no">{fileNo(h.accession)}</span>
+                <span className="file-no">{passageRef(h.id)}</span>
                 <Link href={`/archive/${h.slug}`}>
                   <em>{h.title}</em>
                 </Link>
                 <span>{h.author}</span>
-                <Link href={`/p/${h.id}`} className="label" style={{ textDecoration: "none" }}>
-                  ¶ {h.id} — read in context →
+                <Link href={`/p/${h.id}`} className="link-arrow">
+                  Read in context
                 </Link>
               </p>
             </article>

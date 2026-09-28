@@ -1,19 +1,23 @@
-import { asc, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BookCover, IndexHead, InkStamp } from "@/components/period";
 import { db } from "@/db";
-import { physicalEditions, works } from "@/db/schema";
-import { fileNo } from "@/lib/archive";
+import { physicalEditions } from "@/db/schema";
+import { fileNo, listWorks, yearLabel } from "@/lib/archive";
 import { formatPrice } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Restricted Editions" };
 
 export default async function EditionsPage() {
-  const editions = await db
-    .select({ e: physicalEditions, w: works })
-    .from(physicalEditions)
-    .innerJoin(works, eq(works.id, physicalEditions.workId))
-    .orderBy(asc(works.accession));
+  const [editions, all] = await Promise.all([
+    db.select().from(physicalEditions).orderBy(asc(physicalEditions.id)),
+    listWorks(),
+  ]);
+  const byId = new Map(all.map((w) => [w.id, w]));
+  const issued = editions
+    .map((e, i) => ({ e, w: byId.get(e.workId), no: String(i + 1).padStart(3, "0") }))
+    .filter((x): x is { e: typeof x.e; w: NonNullable<typeof x.w>; no: string } => Boolean(x.w));
 
   return (
     <div className="wrap">
@@ -21,49 +25,65 @@ export default async function EditionsPage() {
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Restricted Press</Link> <span>/</span> <span>Restricted Editions</span>
         </nav>
-        <div className="split mt-4" style={{ alignItems: "end" }}>
+        <div className="page-head__row mt-3" style={{ alignItems: "end" }}>
           <div>
-            <span className="label">Restricted Editions</span>
-            <h1 className="title-xl mt-1">The archive, made physical.</h1>
+            <span className="file-no">Instrument 04 · Physical editions</span>
+            <h1 className="title-xl mt-2">Restricted Editions</h1>
+            <p className="lede mt-3" style={{ maxWidth: "44ch" }}>
+              The archive is where texts are discovered. A Restricted Edition is for keeping — restored from the
+              historical source, newly typeset with the original spelling intact, and printed to order.
+            </p>
           </div>
-          <p className="lede">
-            The digital archive is where texts are discovered. A Restricted Edition is for keeping: newly typeset from
-            the archive text, original spelling intact, sewn and bound — the object, the restoration, and the
-            completeness of the text.
+          <p className="class-mark" style={{ whiteSpace: "normal", textAlign: "right" }}>
+            {issued.length} {issued.length === 1 ? "edition" : "editions"} registered
           </p>
         </div>
       </header>
 
-      <section className="mt-4">
-        <div className="section-head">
-          <h2>In preparation</h2>
-          <span className="label">{editions.length}</span>
-        </div>
-        {editions.map(({ e, w }) => (
-          <article key={e.id} className="split" style={{ padding: "40px 0", borderBottom: "1px solid var(--rule)" }}>
-            <div className="edition-object" aria-hidden="true">
-              <span className="edition-object__foot">Restricted Edition</span>
-              <span className="edition-object__title">{w.title}</span>
-              <span className="edition-object__foot">
-                {fileNo(w.accession)}
-                {w.originalYear ? ` · ${w.originalYear}` : ""}
-              </span>
-            </div>
+      <section>
+        <IndexHead no="01" title="Register of editions" />
+        {issued.map(({ e, w, no }) => (
+          <article key={e.id} className="split" style={{ padding: "40px 0", borderBottom: "1px solid var(--rule)", alignItems: "center" }}>
+            <Link href={`/editions/${w.slug}`} className="cover-link" style={{ maxWidth: 280, width: "100%", justifySelf: "center", position: "relative" }}>
+              <BookCover item={w} />
+            </Link>
             <div>
-              <span className="file-no">{fileNo(w.accession)}</span>
-              <h3 className="title-l mt-1">{e.name}</h3>
+              <span className="file-no">
+                RP / {no} · {fileNo(w.accession)}
+              </span>
+              <h2 className="title-l mt-2">
+                <Link href={`/editions/${w.slug}`} style={{ textDecoration: "none" }}>
+                  {e.name.replace(/^Restricted Edition\s*[—–-]\s*/i, "")}
+                </Link>
+              </h2>
               {e.description ? <p className="lede mt-2">{e.description}</p> : null}
-              <div className="row mt-3" style={{ gap: 16 }}>
-                <span className="stamp stamp--brass">{e.status === "available" ? "Available" : "In preparation"}</span>
+              <dl className="edition-spec mt-4">
+                <div>
+                  <dt>Status</dt>
+                  <dd className="red">{e.status === "available" ? "Available" : e.status === "sold_out" ? "Out of print" : "In preparation"}</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>
+                    Archive copy · {yearLabel(w.originalYear, w.originalYearBasis)}
+                  </dd>
+                </div>
                 {e.priceCents ? (
-                  <span style={{ fontFamily: "var(--serif)", fontSize: "1.5rem" }}>
-                    {formatPrice(e.priceCents, e.currency)} <span className="meta">{e.status === "available" ? "" : "indicative"}</span>
-                  </span>
+                  <div>
+                    <dt>Price</dt>
+                    <dd>
+                      {formatPrice(e.priceCents, e.currency)}
+                      {e.status === "available" ? "" : " · indicative"}
+                    </dd>
+                  </div>
                 ) : null}
-              </div>
-              <div className="row mt-3">
-                <Link href={`/archive/${w.slug}`} className="btn btn--ghost">
-                  Read the dossier
+              </dl>
+              <div className="row mt-4">
+                <Link href={`/editions/${w.slug}`} className="btn">
+                  View the edition
+                </Link>
+                <Link href={`/archive/${w.slug}`} className="link-arrow">
+                  Archive file
                 </Link>
               </div>
             </div>
@@ -72,10 +92,15 @@ export default async function EditionsPage() {
       </section>
 
       <section className="band" style={{ borderBottom: 0 }}>
+        <IndexHead no="02" title="The Archive Seal" />
         <div className="split" style={{ alignItems: "start" }}>
-          <div>
-            <span className="label">The Archive Seal</span>
-            <h2 className="title-l mt-1">Every book opens back into the archive.</h2>
+          <div style={{ position: "relative" }}>
+            <h2 className="title-l">Every book opens back into the archive.</h2>
+            <div className="mt-4">
+              <InkStamp tone="ivory" sub="Planned" tilt={-4}>
+                Archive seal
+              </InkStamp>
+            </div>
           </div>
           <ol className="numbered">
             <li>
@@ -100,7 +125,7 @@ export default async function EditionsPage() {
               <div>
                 <strong>Deepening</strong>
                 <p className="meta mt-1">
-                  Each edition will carry an Archive Seal — an accession code that opens an enhanced dossier: source
+                  Each edition will carry an Archive Seal — an accession code that opens an enhanced file: source
                   scans, restoration notes and related material. Planned; not yet active.
                 </p>
               </div>

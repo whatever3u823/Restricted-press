@@ -14,7 +14,7 @@ export default async function Page() {
     <div className="wrap" style={{ padding: "64px var(--gutter)" }}>
       <div className="auth-card">
         <div className="spread">
-          <span className="label label--ink">Reader registration</span>
+          <span className="file-no">Access control · Form R-1</span>
           <Seal className="wordmark__seal" />
         </div>
         <h1 className="title-l mt-3">Register as a reader.</h1>

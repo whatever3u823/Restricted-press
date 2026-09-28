@@ -2,10 +2,10 @@ import { desc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { RecordRow } from "@/components/records";
+import { CatalogRow } from "@/components/period";
 import { db } from "@/db";
 import { passages, savedPassages, savedWorks, sections, works } from "@/db/schema";
-import { fileNo, listWorks } from "@/lib/archive";
+import { fileNo, listWorks, passageRef } from "@/lib/archive";
 import { getViewer } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Your library" };
@@ -18,10 +18,10 @@ export default async function LibraryPage() {
     return (
       <div className="wrap narrow">
         <header className="page-head">
-          <span className="label">Your library</span>
-          <h1 className="title-xl mt-1">A private archive within the archive.</h1>
+          <span className="file-no">Inner Archive · Private register</span>
+          <h1 className="title-xl mt-2">A private archive within the archive.</h1>
           <p className="lede mt-3">
-            Inner Archive members keep a personal library of records, save passages with research notes, and return to
+            Inner Archive members keep a personal library of files, save passages with research notes, and return to
             them from anywhere.
           </p>
           <div className="mt-4">
@@ -63,23 +63,23 @@ export default async function LibraryPage() {
   return (
     <div className="wrap">
       <header className="page-head">
-        <span className="label">Your library</span>
-        <h1 className="title-xl mt-1">Research library</h1>
+        <span className="file-no">Inner Archive · Private register</span>
+        <h1 className="title-xl mt-2">Research library</h1>
       </header>
 
       <section>
         <div className="section-head">
-          <h2>Saved records</h2>
+          <h2>Saved files</h2>
           <span className="label">{records.length}</span>
         </div>
         {records.length ? (
           <ul className="records">
             {records.map((w) => (
-              <RecordRow key={w.id} item={w} />
+              <CatalogRow key={w.id} item={w} />
             ))}
           </ul>
         ) : (
-          <p className="empty">No saved records yet. Use “Add to your library” on any dossier.</p>
+          <p className="empty">No saved files yet. Use “Add to your library” on any file.</p>
         )}
       </section>
 
@@ -101,7 +101,7 @@ export default async function LibraryPage() {
                   </Link>
                   <span>{p.section.replace(/_/g, "")}</span>
                   <Link href={`/p/${p.id}`} className="label" style={{ textDecoration: "none" }}>
-                    ¶ {p.id} →
+                    {passageRef(p.id)} →
                   </Link>
                 </p>
               </article>

@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { entitlements, passages, savedPassages, savedWorks, works } from "@/db/schema";
+import { archiveRequests, entitlements, passages, savedPassages, savedWorks, works } from "@/db/schema";
 import { getViewer } from "@/lib/viewer";
 
 export type ActionResult =
@@ -83,4 +83,39 @@ export async function cancelDevMembership(): Promise<ActionResult> {
     .where(and(eq(entitlements.userId, viewer.user.id), eq(entitlements.source, "dev"), eq(entitlements.status, "active")));
   revalidatePath("/", "layout");
   return { ok: true, saved: false };
+}
+
+export type RequestResult = { ok: true; reference: string } | { ok: false; message: string };
+
+/** File a request with the archive: a title to accession, or edition interest. */
+export async function fileRequest(input: {
+  kind: "title" | "edition";
+  title: string;
+  author?: string;
+  notes?: string;
+  email?: string;
+  workId?: number;
+}): Promise<RequestResult> {
+  const viewer = await getViewer();
+  const title = input.title?.trim().slice(0, 300);
+  if (!title || title.length < 2) return { ok: false, message: "Please give the title you are requesting." };
+  const email = (input.email ?? viewer.user?.email ?? "").trim().slice(0, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, message: "That email address does not look right." };
+  if (input.workId !== undefined) {
+    const [w] = await db.select({ id: works.id }).from(works).where(eq(works.id, input.workId)).limit(1);
+    if (!w) return { ok: false, message: "Unknown file." };
+  }
+  const [row] = await db
+    .insert(archiveRequests)
+    .values({
+      kind: input.kind,
+      userId: viewer.user?.id ?? null,
+      email: email || null,
+      title,
+      author: input.author?.trim().slice(0, 200) || null,
+      notes: input.notes?.trim().slice(0, 2000) || null,
+      workId: input.workId ?? null,
+    })
+    .returning({ id: archiveRequests.id });
+  return { ok: true, reference: `${input.kind === "title" ? "REQ" : "ED"}-${String(row.id).padStart(5, "0")}` };
 }

@@ -15,12 +15,12 @@ export default async function AccountPage() {
   return (
     <div className="wrap narrow">
       <header className="page-head">
-        <span className="label">Reader record</span>
-        <h1 className="title-xl mt-1">{viewer.user.name}</h1>
+        <span className="file-no">Reader record · Access level {viewer.plan === "inner" ? "02" : "01"}</span>
+        <h1 className="title-xl mt-2">{viewer.user.name}</h1>
         <p className="meta mt-1">{viewer.user.email}</p>
       </header>
       <dl className="biblio">
-        <dt>Standing</dt>
+        <dt>Access</dt>
         <dd>
           {viewer.plan === "inner" ? (
             <span className="stamp stamp--solid">Inner Archive</span>
@@ -34,7 +34,7 @@ export default async function AccountPage() {
         <dd>{quota.limit === null ? "Unlimited questions" : `${quota.remaining} of ${quota.limit} questions left today`}</dd>
         <dt>Library</dt>
         <dd>
-          <Link href="/library">Saved records and passages →</Link>
+          <Link href="/library">Saved files and passages →</Link>
         </dd>
       </dl>
       <div className="mt-4">

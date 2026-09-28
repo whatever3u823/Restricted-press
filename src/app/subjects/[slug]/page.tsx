@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RecordRow } from "@/components/records";
+import { CatalogRow } from "@/components/period";
 import { getSubject } from "@/lib/archive";
 
 type Params = Promise<{ slug: string }>;
@@ -19,16 +19,16 @@ export default async function SubjectPage({ params }: { params: Params }) {
     <div className="wrap">
       <header className="page-head">
         <nav className="breadcrumb" aria-label="Breadcrumb">
-          <Link href="/archive">The Archive</Link> <span>/</span> <span>{subject.kind === "category" ? "Shelf" : "Subject"}</span>
+          <Link href="/collections">Collections</Link> <span>/</span> <span>{subject.name}</span>
         </nav>
-        <span className="label mt-4" style={{ display: "block" }}>
-          {subject.kind === "category" ? "Shelf" : "Subject heading"}
+        <span className="file-no mt-4" style={{ display: "block" }}>
+          {subject.kind === "category" ? "Collection" : "Subject heading"} · Index
         </span>
         <h1 className="title-xl mt-1">{subject.name}</h1>
         {subject.description ? <p className="lede mt-2" style={{ maxWidth: "54ch" }}>{subject.description}</p> : null}
         {neighbours.length ? (
           <div className="mt-4">
-            <span className="label">Often found with</span>
+            <span className="label">Cross-references</span>
             <div className="tags mt-1">
               {neighbours.map((n) => (
                 <Link key={n.slug} href={`/subjects/${n.slug}`} className="tag">
@@ -40,12 +40,12 @@ export default async function SubjectPage({ params }: { params: Params }) {
         ) : null}
       </header>
       <div className="section-head">
-        <h2>Records</h2>
+        <h2>Files</h2>
         <span className="label">{works.length}</span>
       </div>
       <ul className="records">
         {works.map((w) => (
-          <RecordRow key={w.id} item={w} />
+          <CatalogRow key={w.id} item={w} />
         ))}
       </ul>
       <div className="notice mt-4">

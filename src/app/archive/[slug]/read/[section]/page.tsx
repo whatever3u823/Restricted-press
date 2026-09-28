@@ -81,7 +81,7 @@ export default async function ReaderPage({ params, searchParams }: { params: Par
 
       <div className="wrap reader-shell">
         <nav className="reader-nav" aria-label="Contents">
-          <span className="label label--ink">Contents</span>
+          <span className="label label--ink">Contents · {fileNo(d.work.accession)}</span>
           <ol>
             {d.sections.map((s) => (
               <li key={s.id} className={s.level === 2 ? "level-2" : undefined}>
@@ -134,10 +134,20 @@ export default async function ReaderPage({ params, searchParams }: { params: Par
             </section>
           ) : null}
 
+          <div className="reader-paper">
+          <div className="reader-paper__head" aria-label="Running head">
+            <span>
+              <b>{fileNo(d.work.accession)}</b> · {d.work.title}
+            </span>
+            <span>
+              § {String(ordinal).padStart(2, "0")} of {String(d.sections.length).padStart(2, "0")}
+              {d.edition?.year ? ` · Printed ${d.edition.year}` : ""}
+            </span>
+          </div>
           <article className="reader" lang="en">
             <header className="reader__heading">
               <span className="label">
-                {fileNo(d.work.accession)} · § {ordinal}
+                § {String(ordinal).padStart(2, "0")}
               </span>
               <h1>
                 <SectionTitle title={text.section.title} />
@@ -183,16 +193,21 @@ export default async function ReaderPage({ params, searchParams }: { params: Par
               </Link>
             ) : (
               <Link href={`/archive/${slug}#related`} className="next">
-                <span className="label">End of text →</span>
-                <span className="reader-pager__title">Related records</span>
+                <span className="label">End of file →</span>
+                <span className="reader-pager__title">Related files</span>
               </Link>
             )}
           </nav>
+          </div>
 
-          <aside className="notice" style={{ maxWidth: "var(--measure)", margin: "40px auto 0" }}>
-            Transcribed as printed: spelling and punctuation are the original’s. Hover a paragraph for its permanent
-            address, to save it, or to ask the Archivist about it.
-          </aside>
+          <div className="source-bar" aria-label="Source">
+            <span>
+              Source: {d.edition?.label ?? "Archive copy"}
+              {d.source ? ` · ${d.source.provider} #${d.source.identifier}` : ""}
+            </span>
+            <span>Transcribed as printed · spelling preserved</span>
+            <Link href={`/archive/${slug}#provenance`}>Source record →</Link>
+          </div>
         </div>
       </div>
     </>

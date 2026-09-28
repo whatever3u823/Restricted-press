@@ -12,6 +12,7 @@ export default async function AuthorsPage() {
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link href="/archive">The Archive</Link> <span>/</span> <span>Authors</span>
         </nav>
+        <span className="file-no mt-4" style={{ display: "block" }}>Name authority index</span>
         <h1 className="title-xl mt-2">Authors, editors &amp; translators</h1>
       </header>
       <ul className="related-list" style={{ borderTop: "1px solid var(--rule-strong)" }}>
@@ -20,7 +21,7 @@ export default async function AuthorsPage() {
             <Link href={`/authors/${a.slug}`} className="spread" style={{ display: "flex" }}>
               <span className="related-list__title">{a.name}</span>
               <span className="meta">
-                {lifeDates(a.birth_year, a.death_year) ?? ""} · {a.n} record{a.n === 1 ? "" : "s"}
+                {lifeDates(a.birth_year, a.death_year) ?? ""} · {a.n} file{a.n === 1 ? "" : "s"}
               </span>
             </Link>
           </li>

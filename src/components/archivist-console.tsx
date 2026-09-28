@@ -11,6 +11,12 @@ type Exchange = { key: number; question: string; mode: ArchivistMode } & (
 );
 
 const fileNo = (n: number) => `FILE ${String(n).padStart(4, "0")}`;
+const pad2 = (s: string) => String(Number(s)).padStart(2, "0");
+/** "0017.003.0012" → "FILE 0017 / §03 / ¶12" — mirrors passageRef on the server. */
+const ref = (id: string) => {
+  const [a, sec, par] = id.split(".");
+  return sec && par ? `${fileNo(Number(a))} / §${pad2(sec)} / ¶${pad2(par)}` : id;
+};
 
 export function ArchivistConsole(props: {
   initialQuestion: string;
@@ -81,7 +87,28 @@ export function ArchivistConsole(props: {
 
   return (
     <>
-      <form className="archivist-form mt-4" onSubmit={submit}>
+      <div className="terminal mt-4">
+      <dl className="terminal__status">
+        <div>
+          <dt>Collection</dt>
+          <dd>{scope ? `${scope.file}` : "Restricted Press"}</dd>
+        </div>
+        <div>
+          <dt>Mode</dt>
+          <dd className="red">Source-bound · {mode === "deep" ? "Deep" : "Standard"}</dd>
+        </div>
+        <div>
+          <dt>Output</dt>
+          <dd>{props.generative ? "Cited answer" : "Sources only"}</dd>
+        </div>
+        <div>
+          <dt>Access</dt>
+          <dd>
+            <QuotaNote quota={quota} signedIn={props.signedIn} />
+          </dd>
+        </div>
+      </dl>
+      <form className="archivist-form" onSubmit={submit}>
         {scope || passage ? (
           <div className="row" style={{ gap: 8 }}>
             {scope ? (
@@ -102,8 +129,8 @@ export function ArchivistConsole(props: {
             ) : null}
           </div>
         ) : null}
-        <label htmlFor="archivist-q" className="visually-hidden">
-          Your question
+        <label htmlFor="archivist-q" className="label">
+          Query
         </label>
         <textarea
           id="archivist-q"
@@ -134,12 +161,9 @@ export function ArchivistConsole(props: {
               Deep research {props.canDeep ? null : <LockIcon />}
             </button>
           </div>
-          <div className="row">
-            <QuotaNote quota={quota} signedIn={props.signedIn} />
-            <button className="btn" type="submit" disabled={busy || exhausted || question.trim().length < 3}>
-              {busy ? "Consulting…" : "Ask the Archivist"}
-            </button>
-          </div>
+          <button className="btn btn--accent" type="submit" disabled={busy || exhausted || question.trim().length < 3}>
+            {busy ? "Searching…" : "Search the archive"}
+          </button>
         </div>
         {mode === "deep" && !props.canDeep ? (
           <div className="notice">
@@ -149,10 +173,11 @@ export function ArchivistConsole(props: {
           </div>
         ) : null}
       </form>
+      </div>
 
       {exchanges.length === 0 ? (
         <div className="mt-6">
-          <span className="label">Lines of enquiry</span>
+          <span className="label">Standing queries</span>
           <div className="suggestions mt-2">
             {props.suggestions.map((s) => (
               <button
@@ -185,18 +210,18 @@ export function ArchivistConsole(props: {
 }
 
 function QuotaNote({ quota, signedIn }: { quota: QuotaState; signedIn: boolean }) {
-  if (quota.limit === null) return <span className="meta">Inner Archive · unlimited</span>;
+  if (quota.limit === null) return <span>Inner Archive · unlimited</span>;
   if (quota.remaining === 0) {
     return (
-      <span className="meta">
-        No questions left today ·{" "}
+      <span className="red">
+        No queries left today ·{" "}
         {signedIn ? <Link href="/membership">go unlimited</Link> : <Link href="/sign-up">create an account</Link>}
       </span>
     );
   }
   return (
-    <span className="meta">
-      {quota.remaining} of {quota.limit} questions left today
+    <span>
+      {quota.remaining} of {quota.limit} queries today
     </span>
   );
 }
@@ -245,7 +270,7 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
   if (r.status === "no_results") {
     return (
       <div className="answer">
-        <span className="label">Answer</span>
+        <span className="label">Findings</span>
         <div className="answer__body">
           <p>I can find nothing in the archive on this. The collection is still small, and the question may lie outside it.</p>
           <p className="meta mt-2">
@@ -256,11 +281,29 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
     );
   }
 
+  const cited = new Set(r.sources.map((s) => s.passageId));
+  const retrieved = [...r.sources, ...r.consulted];
+
   return (
     <>
+      {retrieved.length ? (
+        <div className="sources">
+          <span className="label">Sources retrieved</span>
+          <ol className="retrieved">
+            {retrieved.map((s, i) => (
+              <li key={s.passageId}>
+                <span className="n">{String(i + 1).padStart(2, "0")}</span>
+                <Link href={`/p/${s.passageId}`}>{ref(s.passageId)}</Link>
+                <span className="t">{s.title}</span>
+                <span className={`flag${cited.has(s.passageId) ? " red" : ""}`}>{cited.has(s.passageId) ? "Cited" : "Read"}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
       {r.status === "retrieval_only" ? (
         <div className="answer">
-          <span className="label">Answer</span>
+          <span className="label">Findings</span>
           <div>
             <p className="answer__body">
               These are the passages the archive holds that bear most directly on your question, strongest first.
@@ -274,7 +317,7 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
       ) : (
         <div className="answer">
           <div>
-            <span className="label">{r.status === "insufficient" ? "Finding" : "Answer"}</span>
+            <span className="label">{r.status === "insufficient" ? "Finding" : "Findings"}</span>
             <p className="meta mt-1" style={{ fontSize: 12 }}>
               {r.mode === "deep" ? "Deep research" : "Standard"}
             </p>
@@ -332,7 +375,7 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
       {r.sources.length ? (
         <div className="sources">
           <div>
-            <span className="label">Sources</span>
+            <span className="label">Source extracts</span>
             <p className="meta mt-1" style={{ fontSize: 12 }}>
               Cited sentences marked
             </p>
@@ -348,7 +391,7 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
       {r.consulted.length ? (
         r.status === "retrieval_only" ? (
           <div className="sources">
-            <span className="label">Passages</span>
+            <span className="label">Source extracts</span>
             <ol className="source-list">
               {r.consulted.map((s) => (
                 <SourceItem key={s.passageId} s={s} id={`source-${r.id}-${s.n}`} active={false} />
@@ -370,7 +413,7 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
       ) : null}
 
       <p className="meta" style={{ padding: "8px 0 0" }}>
-        {r.sources.length + r.consulted.length} passages from {records} record{records === 1 ? "" : "s"} ·{" "}
+        {r.sources.length + r.consulted.length} passages from {records} file{records === 1 ? "" : "s"} ·{" "}
         {(r.elapsedMs / 1000).toFixed(1)}s{r.scope ? ` · within ${r.scope.title}` : ""}
       </p>
     </>
@@ -395,7 +438,7 @@ function SourceItem({ s, id, active }: { s: AnswerSource; id: string; active: bo
           <Excerpt text={s.text} quoted={s.quoted} />
         </p>
         <Link href={`/p/${s.passageId}`} className="label" style={{ textDecoration: "none", display: "inline-block", marginTop: 8 }}>
-          ¶ {s.passageId} — read in context →
+          {ref(s.passageId)} — read in context →
         </Link>
       </div>
     </li>

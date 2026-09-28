@@ -355,3 +355,24 @@ export const researchQueries = pgTable(
     index("research_queries_client_idx").on(t.clientHash, t.createdAt),
   ],
 );
+
+/**
+ * Requests filed with the archive: a title the reader wants accessioned
+ * ("title"), or interest in a Restricted Edition ("edition").
+ */
+export const archiveRequests = pgTable(
+  "archive_requests",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").$type<"title" | "edition">().notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    email: text("email"),
+    title: text("title").notNull(),
+    author: text("author"),
+    notes: text("notes"),
+    workId: integer("work_id").references(() => works.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("received"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("archive_requests_kind_idx").on(t.kind, t.createdAt)],
+);

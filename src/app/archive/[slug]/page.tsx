@@ -2,11 +2,12 @@ import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AccessStamp, Byline, Confidence, DraftFlag, RightsStamp, SectionTitle } from "@/components/records";
+import { BookCover, InkStamp } from "@/components/period";
+import { Confidence, DraftFlag, SectionTitle } from "@/components/records";
 import { SaveRecord } from "@/components/save-record";
 import { db } from "@/db";
 import { savedWorks } from "@/db/schema";
-import { fileNo, getDossier, lifeDates, yearLabel } from "@/lib/archive";
+import { accessLabel, editionNumber, fileNo, getDossier, lifeDates, yearLabel } from "@/lib/archive";
 import { formatPrice } from "@/lib/config";
 import { getViewer } from "@/lib/viewer";
 
@@ -14,7 +15,7 @@ type Params = Promise<{ slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const d = await getDossier((await params).slug);
-  if (!d) return { title: "Record not found" };
+  if (!d) return { title: "File not found" };
   return { title: `${fileNo(d.work.accession)} · ${d.work.title}`, description: d.work.summary ?? undefined };
 }
 
@@ -54,9 +55,28 @@ export default async function DossierPage({ params }: { params: Params }) {
     ? (await db.select().from(savedWorks).where(and(eq(savedWorks.userId, viewer.user.id), eq(savedWorks.workId, work.id))).limit(1)).length > 0
     : false;
   const draft = work.contentStatus !== "reviewed";
+  const editionNo = physical ? await editionNumber(work.id) : null;
 
   let n = 0;
   const num = () => String(++n).padStart(2, "0");
+
+  const stamp = withheld ? (
+    <InkStamp sub="Pending rights review" tilt={-8}>
+      Restricted
+    </InkStamp>
+  ) : work.accessLevel === "inner" ? (
+    <InkStamp sub="Inner Archive" tilt={-6}>
+      Restricted
+    </InkStamp>
+  ) : physical ? (
+    <InkStamp sub={`RP / ${editionNo}`} tilt={-6}>
+      Restored
+    </InkStamp>
+  ) : (
+    <InkStamp sub={fileNo(work.accession)} tilt={-6}>
+      Archive copy
+    </InkStamp>
+  );
 
   return (
     <div className="wrap">
@@ -71,149 +91,155 @@ export default async function DossierPage({ params }: { params: Params }) {
           <span>{fileNo(work.accession)}</span>
         </nav>
 
-        <div className="row mt-4" style={{ gap: 10 }}>
-          <span className="file-no" style={{ fontSize: 14, color: "var(--ink)" }}>
-            {fileNo(work.accession)}
-          </span>
-          <span className="label">· Archive record</span>
-          <RightsStamp rights={item.rights} />
-          <AccessStamp item={item} />
-        </div>
-        <h1 className="title-xl mt-2" style={{ maxWidth: "22ch" }}>
-          {work.title}
-        </h1>
-        {work.subtitle ? (
-          <p className="lede mt-2" style={{ fontStyle: "italic", maxWidth: "52ch" }}>
-            {work.subtitle}
-          </p>
-        ) : null}
-        <p className="mt-3" style={{ fontSize: 17 }}>
-          <Byline authors={item.authors} />
-        </p>
+        <div className="file-head mt-6">
+          <div className="file-head__cover fade-in">
+            <BookCover item={item} />
+            {stamp}
+          </div>
+          <div className="reveal">
+            <div className="file-head__kicker">
+              <span className="file-no" style={{ fontSize: 13 }}>
+                {fileNo(work.accession)}
+              </span>
+              <span className="label">{physical ? "Restricted Edition" : "Archive file"}</span>
+              {draft ? <DraftFlag>Curatorial draft</DraftFlag> : null}
+            </div>
+            <h1 className="file-head__title">{work.title}</h1>
+            {work.subtitle ? <p className="file-head__sub">{work.subtitle}</p> : null}
+            <p className="file-head__by">
+              {item.authors.map((a, i) => (
+                <span key={a.slug}>
+                  {i > 0 ? (a.role === "author" ? " & " : " · ") : null}
+                  {a.role === "translator" ? "trans. " : a.role === "introducer" ? "intro. " : ""}
+                  <Link href={`/authors/${a.slug}`}>{a.name}</Link>
+                  {a.role === "editor" ? " (ed.)" : null}
+                </span>
+              ))}
+              <span className="muted">{yearLabel(work.originalYear, work.originalYearBasis)}</span>
+            </p>
 
-        <dl className="cover-sheet mt-4">
-          <div>
-            <dt className="label">Date</dt>
-            <dd>
-              {yearLabel(work.originalYear, work.originalYearBasis)}
-              {work.originalYear && work.originalYearBasis === "curatorial" ? <span className="meta"> · unverified</span> : null}
-            </dd>
+            <dl className="file-head__meta">
+              <div>
+                <dt>Status</dt>
+                <dd className={item.rights.tone === "clear" ? undefined : "red"}>
+                  {item.rights.label} <Confidence level={item.rights.confidence} />
+                </dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd>{source ? `${source.provider}${source.identifier ? ` #${source.identifier}` : ""}` : "Not recorded"}</dd>
+              </div>
+              <div>
+                <dt>Edition</dt>
+                <dd className={physical ? "red" : undefined}>{physical ? `Restricted Press / ${editionNo}` : "Archive copy"}</dd>
+              </div>
+              <div>
+                <dt>Year</dt>
+                <dd>
+                  {work.originalYear ?? "n.d."}
+                  {work.originalYear && work.originalYearBasis === "curatorial" ? " · unverified" : ""}
+                </dd>
+              </div>
+              <div>
+                <dt>Collection</dt>
+                <dd>{item.category ? <Link href={`/subjects/${item.category.slug}`}>{item.category.name}</Link> : "—"}</dd>
+              </div>
+              <div>
+                <dt>Access</dt>
+                <dd className={withheld || work.accessLevel === "inner" ? "red" : undefined}>
+                  {accessLabel(work)}
+                  {!withheld ? ` · ${work.wordCount.toLocaleString()} words` : ""}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="prose file-head__desc" style={{ maxWidth: "60ch" }}>
+              {work.summary}
+            </p>
+
+            <div className="file-head__actions">
+              {withheld ? (
+                <span className="btn" aria-disabled="true">
+                  Text withheld
+                </span>
+              ) : innerLocked ? (
+                <Link href="/membership" className="btn btn--accent">
+                  Request Inner Archive access
+                </Link>
+              ) : readHref ? (
+                <Link href={readHref} className="btn">
+                  Read the text
+                </Link>
+              ) : null}
+              {physical ? (
+                <Link href={`/editions/${slug}`} className="btn btn--accent">
+                  Order the edition
+                </Link>
+              ) : null}
+              {!withheld ? (
+                <Link href={`/archivist?scope=${slug}`} className="btn btn--ghost">
+                  Consult the Archivist
+                </Link>
+              ) : null}
+            </div>
+            <div className="mt-3" style={{ maxWidth: 320 }}>
+              <SaveRecord workId={work.id} initiallySaved={saved} />
+            </div>
           </div>
-          <div>
-            <dt className="label">Shelf</dt>
-            <dd>{item.category ? <Link href={`/subjects/${item.category.slug}`}>{item.category.name}</Link> : "—"}</dd>
-          </div>
-          <div>
-            <dt className="label">Status</dt>
-            <dd>
-              {item.rights.label} <Confidence level={item.rights.confidence} />
-            </dd>
-          </div>
-          <div>
-            <dt className="label">Text</dt>
-            <dd>
-              {withheld
-                ? "Withheld pending review"
-                : `${work.wordCount.toLocaleString()} words · ${sections.filter((s) => s.matter === "body").length} sections`}
-            </dd>
-          </div>
-        </dl>
-        {!withheld ? (
-          <div className="dossier-mobile-actions">
-            <Link href={innerLocked ? "/membership" : (readHref ?? "#text")} className={`btn${innerLocked ? " btn--accent" : ""}`}>
-              {innerLocked ? "Unlock the text" : "Read the text →"}
-            </Link>
-            <Link href={`/archivist?scope=${slug}`} className="btn btn--ghost">
-              Ask the Archivist
-            </Link>
-          </div>
-        ) : null}
+        </div>
       </header>
 
       <div className="dossier">
         <div>
-          <section className="dossier__section" id="about">
-            <div className="dossier__section-head">
-              <span className="file-no">{num()}</span>
-              <h2>About the Work</h2>
-            </div>
-            <div className="dossier__section-body">
-              <div className="prose">
-                <p>{work.summary}</p>
-              </div>
-              {item.subjects.length ? (
-                <div className="tags mt-3">
-                  {item.subjects.map((s) => (
-                    <Link key={s.slug} href={`/subjects/${s.slug}`} className="tag">
-                      {s.name}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-              {draft ? (
-                <p className="mt-3">
-                  <DraftFlag />
-                </p>
-              ) : null}
-            </div>
-          </section>
-
-          {work.historicalContext ? (
-            <section className="dossier__section" id="context">
+          {work.archivistNotes || work.archivistQuestions.length ? (
+            <section className="dossier__section" id="notes">
               <div className="dossier__section-head">
                 <span className="file-no">{num()}</span>
-                <h2>Historical Context</h2>
+                <h2>Archival notes</h2>
               </div>
-              <div className="dossier__section-body prose">
-                <p>{work.historicalContext}</p>
+              <div className="dossier__section-body">
+                {work.archivistNotes ? <p className="archival-note">{work.archivistNotes}</p> : null}
+                {work.archivistQuestions.length && !withheld ? (
+                  <>
+                    <h3 className="label mt-4">Lines of enquiry</h3>
+                    <ul className="related-list mt-1">
+                      {work.archivistQuestions.map((q) => (
+                        <li key={q}>
+                          <Link href={`/archivist?q=${encodeURIComponent(q)}&scope=${slug}`}>
+                            <span className="related-list__title">{q}</span>
+                            <span className="related-list__note">Query the Archivist within this file →</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {item.subjects.length ? (
+                  <div className="tags mt-4">
+                    {item.subjects.map((s) => (
+                      <Link key={s.slug} href={`/subjects/${s.slug}`} className="tag">
+                        {s.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </section>
           ) : null}
 
-          <section className="dossier__section" id="text">
+          <section className="dossier__section" id="history">
             <div className="dossier__section-head">
               <span className="file-no">{num()}</span>
-              <h2>Read the Text</h2>
+              <h2>Publication history</h2>
             </div>
             <div className="dossier__section-body">
-              {withheld ? (
-                <div className="notice">
-                  <strong>Text withheld pending rights review.</strong> This record remains in the catalogue so that it
-                  can be found and its provenance inspected. The full text will be released if the review clears it.
+              {work.historicalContext ? (
+                <div className="prose" style={{ marginBottom: 28 }}>
+                  <p>{work.historicalContext}</p>
                 </div>
-              ) : (
-                <>
-                  {innerLocked ? (
-                    <div className="notice" style={{ marginBottom: 16 }}>
-                      <strong>An Inner Archive text.</strong> The dossier is open to all; the full text is available to
-                      Inner Archive members. <Link href="/membership">Unlock the deeper archive →</Link>
-                    </div>
-                  ) : null}
-                  <ol className="contents">
-                    {sections.map((s) => (
-                      <li key={s.id} className={s.level === 2 ? "level-2" : undefined}>
-                        <Link href={innerLocked ? "/membership" : `/archive/${slug}/read/${s.ordinal}`}>
-                          <span>
-                            <SectionTitle title={s.title} />
-                          </span>
-                          <span className="count">{s.wordCount ? `${s.wordCount.toLocaleString()} w` : ""}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              )}
-            </div>
-          </section>
-
-          <section className="dossier__section" id="bibliography">
-            <div className="dossier__section-head">
-              <span className="file-no">{num()}</span>
-              <h2>Bibliographic Record</h2>
-            </div>
-            <div className="dossier__section-body">
+              ) : null}
               <dl className="biblio">
-                <dt>Accession</dt>
+                <dt>File</dt>
                 <dd>{fileNo(work.accession)}</dd>
                 <dt>Title</dt>
                 <dd>
@@ -284,10 +310,56 @@ export default async function DossierPage({ params }: { params: Params }) {
             </div>
           </section>
 
+          <section className="dossier__section" id="text">
+            <div className="dossier__section-head">
+              <span className="file-no">{num()}</span>
+              <h2>The text</h2>
+            </div>
+            <div className="dossier__section-body">
+              {withheld ? (
+                <>
+                  <div className="redacted-doc" aria-hidden="true">
+                    {[92, 100, 76, 98, 64, 100, 88, 40].map((w, i) => (
+                      <span key={i} style={{ width: `${w}%` }} />
+                    ))}
+                    <InkStamp sub={fileNo(work.accession)} tilt={-6}>
+                      Withheld
+                    </InkStamp>
+                  </div>
+                  <p className="notice mt-3">
+                    <strong>Text withheld pending rights review.</strong> The file remains in the catalogue so that it can
+                    be found and its provenance inspected. The text will be released if the review clears it.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {innerLocked ? (
+                    <div className="notice" style={{ marginBottom: 16 }}>
+                      <strong>Inner Archive text.</strong> This file is open to all; its text is available at the Inner
+                      Archive level of access. <Link href="/membership">Access levels →</Link>
+                    </div>
+                  ) : null}
+                  <ol className="contents">
+                    {sections.map((s) => (
+                      <li key={s.id} className={s.level === 2 ? "level-2" : undefined}>
+                        <Link href={innerLocked ? "/membership" : `/archive/${slug}/read/${s.ordinal}`}>
+                          <span>
+                            <SectionTitle title={s.title} />
+                          </span>
+                          <span className="count">{s.wordCount ? `${s.wordCount.toLocaleString()} w` : ""}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </div>
+          </section>
+
           <section className="dossier__section" id="provenance">
             <div className="dossier__section-head">
               <span className="file-no">{num()}</span>
-              <h2>Source &amp; Provenance</h2>
+              <h2>Source record</h2>
             </div>
             <div className="dossier__section-body">
               {source ? (
@@ -333,8 +405,8 @@ export default async function DossierPage({ params }: { params: Params }) {
                 <p className="meta">No source recorded.</p>
               )}
 
-              <h3 className="label label--ink mt-6" id="rights">
-                Rights record — assessed by component
+              <h3 className="label mt-6" id="rights">
+                Rights — assessed by component
               </h3>
               <div className="table-scroll mt-2">
                 <table className="rights-table">
@@ -351,7 +423,7 @@ export default async function DossierPage({ params }: { params: Params }) {
                       <tr key={r.id}>
                         <td>{COMPONENT_LABEL[r.component] ?? r.component}</td>
                         <td>
-                          <span className={`stamp${r.status === "needs_review" || r.status === "restricted" ? " stamp--accent" : ""}`}>
+                          <span className={`stamp${r.status === "needs_review" || r.status === "restricted" ? " stamp--red" : ""}`}>
                             {STATUS_LABEL[r.status] ?? r.status}
                           </span>
                           <div className="meta mt-1">{r.jurisdiction}</div>
@@ -372,66 +444,12 @@ export default async function DossierPage({ params }: { params: Params }) {
               <p className="meta mt-2">Preliminary rights research for curatorial purposes; not legal advice.</p>
             </div>
           </section>
-
-          {work.archivistNotes ? (
-            <section className="dossier__section" id="notes">
-              <div className="dossier__section-head">
-                <span className="file-no">{num()}</span>
-                <h2>Archivist’s Notes</h2>
-              </div>
-              <div className="dossier__section-body">
-                <div className="prose">
-                  <p>{work.archivistNotes}</p>
-                </div>
-                {work.archivistQuestions.length && !withheld ? (
-                  <>
-                    <h3 className="label label--ink mt-4">Lines of enquiry</h3>
-                    <ul className="related-list mt-1">
-                      {work.archivistQuestions.map((q) => (
-                        <li key={q}>
-                          <Link href={`/archivist?q=${encodeURIComponent(q)}&scope=${slug}`}>
-                            <span className="related-list__title">{q}</span>
-                            <span className="related-list__note">Ask the Archivist, within this record →</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
         </div>
 
-        <aside className="dossier__rail" aria-label="Record actions">
-          <div className="rail-block">
-            <h3>Actions</h3>
-            <div className="stack" style={{ ["--stack" as string]: "10px" }}>
-              {withheld ? (
-                <span className="btn" aria-disabled="true" style={{ width: "100%" }}>
-                  Text withheld
-                </span>
-              ) : innerLocked ? (
-                <Link href="/membership" className="btn btn--accent" style={{ width: "100%" }}>
-                  Unlock in the Inner Archive
-                </Link>
-              ) : readHref ? (
-                <Link href={readHref} className="btn" style={{ width: "100%" }}>
-                  Read the text <span className="arrow">→</span>
-                </Link>
-              ) : null}
-              {!withheld ? (
-                <Link href={`/archivist?scope=${slug}`} className="btn btn--ghost" style={{ width: "100%" }}>
-                  Ask the Archivist about this record
-                </Link>
-              ) : null}
-              <SaveRecord workId={work.id} initiallySaved={saved} />
-            </div>
-          </div>
-
+        <aside className="dossier__rail" aria-label="Related files">
           {related.length ? (
-            <div className="rail-block">
-              <h3>Related records</h3>
+            <div className="rail-block" id="related">
+              <h3>Related files</h3>
               <ul className="related-list">
                 {related.map(({ item: r, reason, curated }) => (
                   <li key={r.id}>
@@ -439,11 +457,11 @@ export default async function DossierPage({ params }: { params: Params }) {
                       <span className="file-no" style={{ fontSize: 10.5 }}>
                         {fileNo(r.accession)}
                       </span>
-                      <div className="related-list__title">{r.title}</div>
-                      <div className="related-list__note">
+                      <span className="related-list__title">{r.title}</span>
+                      <span className="related-list__note">
                         {curated ? "◆ " : ""}
                         {reason}
-                      </div>
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -453,7 +471,7 @@ export default async function DossierPage({ params }: { params: Params }) {
 
           {item.authors.length ? (
             <div className="rail-block">
-              <h3>Follow the trail</h3>
+              <h3>Cross-references</h3>
               <div className="tags">
                 {item.authors.map((a) => (
                   <Link key={a.slug} href={`/authors/${a.slug}`} className="tag">
@@ -471,20 +489,20 @@ export default async function DossierPage({ params }: { params: Params }) {
 
           {physical ? (
             <div className="rail-block">
-              <h3>Restricted Edition</h3>
+              <h3>Restricted Edition · RP / {editionNo}</h3>
               <p style={{ fontFamily: "var(--serif)", fontSize: "1.12rem", lineHeight: 1.25 }}>{physical.name}</p>
               {physical.description ? <p className="meta mt-1">{physical.description}</p> : null}
               <div className="spread mt-2">
-                <span className="stamp stamp--brass">{physical.status === "available" ? "Available" : "In preparation"}</span>
+                <span className="stamp stamp--red">{physical.status === "available" ? "Available" : "In preparation"}</span>
                 {physical.priceCents ? (
-                  <span style={{ fontFamily: "var(--serif)", fontSize: "1.2rem" }}>
+                  <span className="mono" style={{ fontSize: "1.05rem" }}>
                     {formatPrice(physical.priceCents, physical.currency)}
                     {physical.status !== "available" ? <span className="meta"> indicative</span> : null}
                   </span>
                 ) : null}
               </div>
-              <Link href="/editions" className="link-arrow mt-2" style={{ display: "inline-block" }}>
-                View edition →
+              <Link href={`/editions/${slug}`} className="link-arrow mt-3" style={{ display: "inline-block" }}>
+                View the edition
               </Link>
             </div>
           ) : null}
