@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MembershipActions } from "@/components/membership-actions";
+import { InkStamp } from "@/components/period";
 import { ARCHIVIST_LIMITS, formatPrice, MEMBERSHIP } from "@/lib/config";
 import { getViewer } from "@/lib/viewer";
 
@@ -47,7 +48,12 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
             and a private library of records, passages and notes.
           </p>
         </div>
-        <div className="hero__panel">
+        <div className="hero__panel" style={{ position: "relative" }}>
+          <span style={{ position: "absolute", right: 10, top: -26, zIndex: 3 }}>
+            <InkStamp tone="brass" sub="Members only" tilt={6}>
+              Inner Archive
+            </InkStamp>
+          </span>
           <div className="spread" style={{ position: "relative" }}>
             <span className="label label--ink">Membership</span>
             <span className="label">{viewer.plan === "inner" ? "Active" : "Monthly"}</span>

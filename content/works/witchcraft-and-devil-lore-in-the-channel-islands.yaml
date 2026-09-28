@@ -60,6 +60,9 @@ structure:
   heading: "^(FOREWORD|INTRODUCTION|CONFESSIONS OF WITCHES UNDER TORTURE|DEPOSITIONS AGAINST COLLAS BECQUET|NOTE ON THE GUERNSEY RECORDS|WITCHCRAFT TRIALS IN GUERNSEY.*|WITCHCRAFT IN GUERNSEY|WITCHCRAFT IN JERSEY|GENERAL PERSECUTION OF WITCHES)\\.?$"
   subheading: "^(SENTENCE DE MORT|SENTENCE OF DEATH|CONFESSION (DE |D'|OF ).+|DEPOSITIONS CONTRE COLLAS BECQUET)\\.?$"
   end_at: "^THE STORY IN BRIEF$"
+plates:
+  - path: /plates/witchcraft-and-devil-lore-in-the-channel-islands/bailiwick-seal.jpg
+    caption: "Guernsey Bailiwick seal, from the title page (1886)."
 related:
   - { slug: a-treatise-of-witchcraft }
   - { slug: a-history-of-witchcraft-in-england }

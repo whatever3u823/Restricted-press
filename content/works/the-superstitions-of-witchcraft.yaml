@@ -51,6 +51,11 @@ structure:
   heading: "^PART [IVX]+\\.$"
   heading_title_next: true
   subheading: "^CHAPTER [IVX]+\\.$"
+plates:
+  - path: /plates/the-superstitions-of-witchcraft/title-page.jpg
+    caption: "Title page of the 1865 Longman edition, photographed from the copy used for the transcription. The oval stamp is a library ownership mark."
+  - path: /plates/the-superstitions-of-witchcraft/preface.jpg
+    caption: "The preface, with a previous reader’s underlining."
 related:
   - { slug: letters-on-demonology-and-witchcraft }
   - { slug: a-history-of-witchcraft-in-england }

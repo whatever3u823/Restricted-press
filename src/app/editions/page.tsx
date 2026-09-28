@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/db";
 import { physicalEditions, works } from "@/db/schema";
-import { fileNo } from "@/lib/archive";
+import { fileNo, listWorks } from "@/lib/archive";
+import { BookCover } from "@/components/period";
 import { formatPrice } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Restricted Editions" };
@@ -14,6 +15,7 @@ export default async function EditionsPage() {
     .from(physicalEditions)
     .innerJoin(works, eq(works.id, physicalEditions.workId))
     .orderBy(asc(works.accession));
+  const all = await listWorks();
 
   return (
     <div className="wrap">
@@ -41,13 +43,8 @@ export default async function EditionsPage() {
         </div>
         {editions.map(({ e, w }) => (
           <article key={e.id} className="split" style={{ padding: "40px 0", borderBottom: "1px solid var(--rule)" }}>
-            <div className="edition-object" aria-hidden="true">
-              <span className="edition-object__foot">Restricted Edition</span>
-              <span className="edition-object__title">{w.title}</span>
-              <span className="edition-object__foot">
-                {fileNo(w.accession)}
-                {w.originalYear ? ` · ${w.originalYear}` : ""}
-              </span>
+            <div style={{ maxWidth: 300, width: "100%", justifySelf: "center" }}>
+              <BookCover item={all.find((x) => x.id === w.id) ?? { accession: w.accession, title: w.title, category: null, authors: [] }} size="lg" />
             </div>
             <div>
               <span className="file-no">{fileNo(w.accession)}</span>

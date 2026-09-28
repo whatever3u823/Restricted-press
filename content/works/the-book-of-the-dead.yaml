@@ -50,6 +50,13 @@ structure:
   heading: "^(CHAPTER [IVX]+|FOOTNOTES)$"
   heading_title_next: true
   drop: []
+plates:
+  - path: /plates/the-book-of-the-dead/weighing-of-the-heart.jpg
+    caption: "“The weighing of the heart of the Scribe Ani in the Great Scales in the Hall of Osiris.”"
+  - path: /plates/the-book-of-the-dead/anubis.jpg
+    caption: "“Anubis standing by the bier of the dead.”"
+  - path: /plates/the-book-of-the-dead/ape-gods.jpg
+    caption: "“The holy Ape-gods singing hymns of praise to Rā at sunrise.”"
 related:
   - { slug: the-golden-bough }
   - { slug: the-kybalion }

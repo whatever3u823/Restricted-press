@@ -80,6 +80,26 @@ export default function AboutPage() {
         </ol>
       </section>
 
+      <section className="mt-6" id="plates">
+        <div className="section-head">
+          <h2>Plates &amp; sources</h2>
+        </div>
+        <p className="prose mt-2">
+          Engravings, seals and page photographs shown in the archive are taken from the illustrated or page-image
+          editions of the same public-domain transcriptions, and are captioned from those editions. Each appears on the
+          dossier of the record it comes from.
+        </p>
+        <ul className="related-list mt-2">
+          <li><Link href="/archive/the-story-of-alchemy#plates"><span className="related-list__title">Muir, The Story of Alchemy</span><span className="related-list__note">Alchemical figures (FIG. I, III, XIII, XV)</span></Link></li>
+          <li><Link href="/archive/hidden-symbolism-of-alchemy#plates"><span className="related-list__title">Silberer, Hidden Symbolism of Alchemy</span><span className="related-list__note">Figures 1–3, including the REBIS</span></Link></li>
+          <li><Link href="/archive/the-book-of-the-dead#plates"><span className="related-list__title">Budge, The Book of the Dead</span><span className="related-list__note">Vignettes from the papyri</span></Link></li>
+          <li><Link href="/archive/the-superstitions-of-witchcraft#plates"><span className="related-list__title">Williams, The Superstitions of Witchcraft</span><span className="related-list__note">Page photographs of the 1865 edition</span></Link></li>
+          <li><Link href="/archive/witchcraft-and-devil-lore-in-the-channel-islands#plates"><span className="related-list__title">Pitts, Witchcraft and Devil Lore</span><span className="related-list__note">Guernsey Bailiwick seal</span></Link></li>
+          <li><Link href="/archive/the-private-diary-of-dr-john-dee#plates"><span className="related-list__title">The Private Diary of Dr. John Dee</span><span className="related-list__note">Device of the Camden Society</span></Link></li>
+          <li><Link href="/archive/simon-magus#plates"><span className="related-list__title">Mead, Simon Magus</span><span className="related-list__note">Diagram of the Simonian Aeonology</span></Link></li>
+        </ul>
+      </section>
+
       <section className="mt-6">
         <div className="section-head">
           <h2>Editorial status</h2>

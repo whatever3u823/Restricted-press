@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AccessStamp, Byline, Confidence, DraftFlag, RightsStamp, SectionTitle } from "@/components/records";
+import { BookCover, ClassMark, InkStamp, Plate } from "@/components/period";
 import { SaveRecord } from "@/components/save-record";
 import { db } from "@/db";
 import { savedWorks } from "@/db/schema";
@@ -71,25 +72,43 @@ export default async function DossierPage({ params }: { params: Params }) {
           <span>{fileNo(work.accession)}</span>
         </nav>
 
-        <div className="row mt-4" style={{ gap: 10 }}>
-          <span className="file-no" style={{ fontSize: 14, color: "var(--ink)" }}>
-            {fileNo(work.accession)}
-          </span>
-          <span className="label">· Archive record</span>
-          <RightsStamp rights={item.rights} />
-          <AccessStamp item={item} />
+        <div className="dossier-head mt-4">
+          <div className="dossier-head__cover">
+            <BookCover item={item} size="md" />
+            {withheld ? (
+              <InkStamp sub="Pending review" tilt={-8}>
+                Withheld
+              </InkStamp>
+            ) : work.accessLevel === "inner" ? (
+              <InkStamp tone="brass" sub="Members" tilt={-6}>
+                Inner
+                <br />
+                Archive
+              </InkStamp>
+            ) : null}
+          </div>
+          <div>
+            <div className="row" style={{ gap: 10 }}>
+              <span className="file-no" style={{ fontSize: 15, color: "var(--ink)" }}>
+                {fileNo(work.accession)}
+              </span>
+              <ClassMark item={item} />
+              <RightsStamp rights={item.rights} />
+              <AccessStamp item={item} />
+            </div>
+            <h1 className="title-xl mt-2" style={{ maxWidth: "20ch" }}>
+              {work.title}
+            </h1>
+            {work.subtitle ? (
+              <p className="lede mt-2" style={{ fontStyle: "italic", maxWidth: "52ch" }}>
+                {work.subtitle}
+              </p>
+            ) : null}
+            <p className="mt-3" style={{ fontSize: 17, fontFamily: "var(--sans)", letterSpacing: "0.02em" }}>
+              <Byline authors={item.authors} />
+            </p>
+          </div>
         </div>
-        <h1 className="title-xl mt-2" style={{ maxWidth: "22ch" }}>
-          {work.title}
-        </h1>
-        {work.subtitle ? (
-          <p className="lede mt-2" style={{ fontStyle: "italic", maxWidth: "52ch" }}>
-            {work.subtitle}
-          </p>
-        ) : null}
-        <p className="mt-3" style={{ fontSize: 17 }}>
-          <Byline authors={item.authors} />
-        </p>
 
         <dl className="cover-sheet mt-4">
           <div>
@@ -100,8 +119,12 @@ export default async function DossierPage({ params }: { params: Params }) {
             </dd>
           </div>
           <div>
-            <dt className="label">Shelf</dt>
-            <dd>{item.category ? <Link href={`/subjects/${item.category.slug}`}>{item.category.name}</Link> : "—"}</dd>
+            <dt className="label">Shelf · class mark</dt>
+            <dd>
+              {item.category ? <Link href={`/subjects/${item.category.slug}`}>{item.category.name}</Link> : "—"}
+              <br />
+              <ClassMark item={item} />
+            </dd>
           </div>
           <div>
             <dt className="label">Status</dt>
@@ -170,6 +193,23 @@ export default async function DossierPage({ params }: { params: Params }) {
             </section>
           ) : null}
 
+          {d.plates.length ? (
+            <section className="dossier__section" id="plates">
+              <div className="dossier__section-head">
+                <span className="file-no">{num()}</span>
+                <h2>Plates</h2>
+              </div>
+              <div className="dossier__section-body">
+                <div className="plates">
+                  {d.plates.map((pl, i) => (
+                    <Plate key={pl.id} src={pl.path} caption={pl.caption ?? ""} n={i} photo={/title-page|preface/.test(pl.path)} />
+                  ))}
+                </div>
+                <p className="meta mt-3">Reproduced from the illustrated or page-image edition supplied by the digital source.</p>
+              </div>
+            </section>
+          ) : null}
+
           <section className="dossier__section" id="text">
             <div className="dossier__section-head">
               <span className="file-no">{num()}</span>
@@ -177,10 +217,20 @@ export default async function DossierPage({ params }: { params: Params }) {
             </div>
             <div className="dossier__section-body">
               {withheld ? (
-                <div className="notice">
-                  <strong>Text withheld pending rights review.</strong> This record remains in the catalogue so that it
-                  can be found and its provenance inspected. The full text will be released if the review clears it.
-                </div>
+                <>
+                  <div className="redacted-doc" aria-hidden="true">
+                    {[92, 100, 76, 98, 64, 100, 88, 40].map((w, i) => (
+                      <span key={i} style={{ width: `${w}%` }} />
+                    ))}
+                    <InkStamp sub={fileNo(work.accession)} tilt={-6}>
+                      Withheld
+                    </InkStamp>
+                  </div>
+                  <p className="notice mt-3">
+                    <strong>Text withheld pending rights review.</strong> This record remains in the catalogue so that it
+                    can be found and its provenance inspected. The full text will be released if the review clears it.
+                  </p>
+                </>
               ) : (
                 <>
                   {innerLocked ? (
@@ -380,9 +430,9 @@ export default async function DossierPage({ params }: { params: Params }) {
                 <h2>Archivist’s Notes</h2>
               </div>
               <div className="dossier__section-body">
-                <div className="prose">
-                  <p>{work.archivistNotes}</p>
-                </div>
+                <p className="marginalia" style={{ fontSize: "1.2rem", maxWidth: "58ch" }}>
+                  {work.archivistNotes}
+                </p>
                 {work.archivistQuestions.length && !withheld ? (
                   <>
                     <h3 className="label label--ink mt-4">Lines of enquiry</h3>

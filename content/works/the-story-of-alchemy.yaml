@@ -20,7 +20,8 @@ historical_context: >
   history of it.
 archivist_notes: >
   Chapter VII, "The Language of Alchemy", is the best entry point. The original
-  edition's eighteen illustrations are not reproduced in this text.
+  edition's eighteen illustrations are not reproduced in the reading text;
+  four appear as plates in this dossier.
 archivist_questions:
   - What did alchemists mean by the "philosopher's stone"?
   - How did Paracelsus change alchemy?
@@ -49,7 +50,7 @@ rights:
     status: public_domain_us
     confidence: medium
     basis: Illustrations in a pre-1931 edition, many reproducing older alchemical images.
-    notes: Not yet digitised in the archive.
+    notes: Four figures are reproduced in the dossier as plates, from the provider's illustrated edition.
   - component: edition
     status: public_domain_us
     confidence: high
@@ -59,6 +60,15 @@ structure:
   heading: "^(PREFACE\\.|NOTE TO NEW EDITION\\.|CHAPTER [IVX]+\\.?)$"
   heading_title_next: true
   end_at: "^INDEX\\.?$"
+plates:
+  - path: /plates/the-story-of-alchemy/fig-i.jpg
+    caption: "FIG. I. “The image used to set forth the mortification of metals is a king swallowing his son.”"
+  - path: /plates/the-story-of-alchemy/fig-iii.jpg
+    caption: "FIG. III. “The action of the mineral agent in perfecting substances is often likened by the alchemists to the conjoining…”"
+  - path: /plates/the-story-of-alchemy/fig-xv.jpg
+    caption: "FIG. XV. “This is the reiteration, gradation, and amelioration of the Tincture, or Philosopher’s Stone.”"
+  - path: /plates/the-story-of-alchemy/fig-xiii.jpg
+    caption: "FIG. XIII."
 related:
   - { slug: hidden-symbolism-of-alchemy }
   - { slug: lives-of-the-necromancers }

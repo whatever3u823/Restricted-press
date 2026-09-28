@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { RecordCard } from "@/components/records";
+import { BookCover, ClassMark, InkStamp, Ornament, Plate, Redact } from "@/components/period";
+import { Byline } from "@/components/records";
 import { Seal } from "@/components/seal";
-import { fileNo, getFacets, getFeatured, getStats } from "@/lib/archive";
+import { fileNo, getFacets, getFeatured, getStats, yearLabel } from "@/lib/archive";
 import { archivistConfigured } from "@/lib/archivist";
 import { formatPrice, MEMBERSHIP } from "@/lib/config";
 import { markedSnippet } from "@/lib/html";
@@ -23,22 +24,22 @@ export default async function Home() {
 
   return (
     <>
-      <section className="hero">
-        <div className="wrap hero__grid">
+      <section className="hero" style={{ borderBottom: 0 }}>
+        <div className="wrap hero__grid" style={{ alignItems: "center" }}>
           <div>
             <div className="hero__kicker">
-              <span className="stamp stamp--accent stamp--large">The Archive</span>
-              <span className="label">Restricted Press</span>
+              <span className="label label--ink">Restricted Press</span>
+              <span className="label">— The Archive</span>
             </div>
             <h1 className="display">
               Forgotten knowledge.
               <br />
               <em style={{ fontStyle: "italic" }}>Restored access.</em>
             </h1>
-            <p className="lede hero__lede">
+            <p className="lede hero__lede" style={{ maxWidth: "36ch" }}>
               A curated archive of texts most people have forgotten exist — witch-trial confessions, alchemical
-              allegory, Hermetic doctrine, the private diary of an Elizabethan magus — read in full, catalogued with
-              care, and open to questioning by an Archivist that cites its sources.
+              allegory, Hermetic doctrine, the private diary of an <Redact>Elizabethan magus</Redact> — read in full,
+              catalogued with care, and open to questioning by an Archivist that cites its sources.
             </p>
             <div className="hero__actions">
               <Link href="/archive" className="btn">
@@ -48,37 +49,58 @@ export default async function Home() {
                 Consult the Archivist
               </Link>
             </div>
+            <blockquote className="epigraph mt-6" style={{ margin: "56px 0 0", maxWidth: "34ch" }}>
+              “It is neither religious nor wise to judge that of which you know nothing.”
+              <cite>
+                Philalethes, <em>A Brief Guide to the Celestial Ruby</em> —{" "}
+                <Link href="/p/0011.001.0009" style={{ color: "inherit" }}>
+                  as quoted in {fileNo(11)}
+                </Link>
+              </cite>
+            </blockquote>
           </div>
-          <aside className="hero__panel" aria-label="Archive register">
-            <div className="spread" style={{ position: "relative", paddingBottom: 8 }}>
-              <span className="label label--ink">Archive register</span>
-              <Seal className="wordmark__seal" />
-            </div>
-            <div className="hero__panel-row">
-              <span className="label">Records</span>
-              <span className="v">{stats.records}</span>
-            </div>
-            <div className="hero__panel-row">
-              <span className="label">Full texts</span>
-              <span className="v">{stats.texts}</span>
-            </div>
-            <div className="hero__panel-row">
-              <span className="label">Passages indexed</span>
-              <span className="v">{stats.passages.toLocaleString()}</span>
-            </div>
-            <div className="hero__panel-row">
-              <span className="label">Words of source text</span>
-              <span className="v">{stats.words.toLocaleString()}</span>
-            </div>
-            <div className="hero__panel-row">
-              <span className="label">Earliest record</span>
-              <span className="v">{stats.earliest}</span>
-            </div>
-          </aside>
+          <div className="hero-plate">
+            <Plate
+              src="/plates/hidden-symbolism-of-alchemy/figure-2.jpg"
+              caption="REBIS, “an hermetic hermaphrodite”. From Silberer, Hidden Symbolism of Alchemy."
+              n={0}
+              href="/archive/hidden-symbolism-of-alchemy"
+            />
+            <InkStamp sub={fileNo(4)} tilt={-7}>
+              Access
+              <br />
+              restored
+            </InkStamp>
+          </div>
         </div>
       </section>
 
-      <section className="band">
+      <section className="wrap" aria-label="Archive register">
+        <div className="register">
+          <div>
+            <span className="label">Records</span>
+            <span className="register__v">{stats.records}</span>
+          </div>
+          <div>
+            <span className="label">Full texts</span>
+            <span className="register__v">{stats.texts}</span>
+          </div>
+          <div>
+            <span className="label">Passages indexed</span>
+            <span className="register__v">{stats.passages.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="label">Words of source text</span>
+            <span className="register__v">{stats.words.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="label">Earliest record</span>
+            <span className="register__v">{stats.earliest}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="band" style={{ borderBottom: 0 }}>
         <div className="wrap">
           <div className="section-head">
             <h2>From the stacks</h2>
@@ -86,12 +108,25 @@ export default async function Home() {
               All records →
             </Link>
           </div>
-          <div className="card-grid" style={{ borderTop: 0 }}>
+          <div className="shelf mt-4">
             {featured.map((w) => (
-              <RecordCard key={w.id} item={w} />
+              <Link key={w.id} href={`/archive/${w.slug}`} className="shelf__item">
+                <BookCover item={w} size="sm" />
+                <span className="shelf__meta">
+                  <span className="file-no" style={{ fontSize: 11 }}>
+                    {fileNo(w.accession)}
+                  </span>
+                  <span className="shelf__title">{w.title}</span>
+                  <span className="meta" style={{ fontSize: 13 }}>
+                    <Byline authors={w.authors.filter((a) => a.role === "author" || a.role === "editor")} linked={false} /> ·{" "}
+                    {yearLabel(w.originalYear, w.originalYearBasis)}
+                  </span>
+                  <ClassMark item={w} />
+                </span>
+              </Link>
             ))}
           </div>
-          <div className="tags mt-4" aria-label="Shelves">
+          <div className="tags mt-6" aria-label="Shelves">
             {facets.categories.map((c) => (
               <Link key={c.slug} href={`/subjects/${c.slug}`} className="tag">
                 {c.name} <span className="muted">· {c.n}</span>
@@ -105,23 +140,25 @@ export default async function Home() {
         <div className="wrap">
           <div className="band__head">
             <div>
-              <span className="label">The Archivist</span>
+              <span className="label" style={{ color: "var(--brass)" }}>
+                The Archivist
+              </span>
               <h2 className="title-xl mt-2">A research librarian that has read every page.</h2>
             </div>
-            <div className="stack" style={{ ["--stack" as string]: "14px" }}>
+            <div className="stack" style={{ ["--stack" as string]: "18px" }}>
               <p className="lede">
                 Ask a question in plain language. The Archivist searches the archive passage by passage, answers only
                 from what it finds, and shows you the sentences behind every claim.
               </p>
-              <p className="meta">
-                Quotations are drawn directly from the archive and checked before they are shown. Where the texts are
-                silent, it says so. Anything it adds from outside the archive is marked as such.
+              <p className="marginalia">
+                Quotations are drawn from the archive itself and checked before they are shown. Where the texts are
+                silent, it says so.
               </p>
             </div>
           </div>
 
           <div className="demo-exchange">
-            <p className="label">Sample enquiry</p>
+            <p className="label">Enquiry on file</p>
             <p className="exchange__q mt-1">“{SAMPLE_QUESTION}”</p>
             <p className="label" style={{ marginBottom: 6 }}>
               Passages the Archivist retrieves — live from the archive
@@ -143,11 +180,40 @@ export default async function Home() {
                 </li>
               ))}
             </ol>
-            <div className="row mt-3">
+            <div className="row mt-4">
               <Link href={`/archivist?q=${encodeURIComponent(SAMPLE_QUESTION)}`} className="btn btn--accent">
-                Ask this question <span className="arrow">→</span>
+                Put this question <span className="arrow">→</span>
               </Link>
               {!llm ? <span className="meta">The Archivist is currently running in retrieval-only mode.</span> : null}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="wrap split" style={{ alignItems: "center" }}>
+          <Plate
+            src="/plates/the-superstitions-of-witchcraft/title-page.jpg"
+            caption="Title page, London, 1865, photographed from the copy used for the archive text — library stamp and all."
+            photo
+            mounted
+            href="/archive/the-superstitions-of-witchcraft"
+          />
+          <div>
+            <span className="label">From the reading room</span>
+            <h2 className="title-l mt-2">Every text is traced to a physical book.</h2>
+            <p className="lede mt-3">
+              Behind each record stands a printed edition: its imprint transcribed, its date and how it is known, the
+              hands that transcribed it, and the rights in every part of it assessed separately.
+            </p>
+            <p className="marginalia mt-4">
+              The stamp on this title page belongs to the library whose copy was photographed. The archive keeps such
+              marks of provenance, and changes nothing in the text.
+            </p>
+            <div className="mt-4">
+              <Link href="/archive/the-superstitions-of-witchcraft" className="link-arrow">
+                {fileNo(12)} — open the dossier →
+              </Link>
             </div>
           </div>
         </div>
@@ -162,18 +228,21 @@ export default async function Home() {
               Every text enters the archive as a record: catalogued, sourced, its rights examined component by
               component, its text divided into addressable passages.
             </p>
+            <p className="class-mark mt-4" style={{ display: "block" }}>
+              e.g. WIT 1616 .R64 · {fileNo(1)} · ¶ 0001.004.0012
+            </p>
           </div>
           <ol className="numbered">
             <li>
               <div>
                 <strong>Every record is a dossier.</strong>
-                <p className="meta mt-1">Bibliographic record, historical context, source and provenance, related records, and the full text.</p>
+                <p className="meta mt-1">Bibliographic record, historical context, source and provenance, plates, related records, and the full text.</p>
               </div>
             </li>
             <li>
               <div>
                 <strong>Every passage has an address.</strong>
-                <p className="meta mt-1">Passages carry permanent identifiers — FILE 0017 § 3 ¶ 12 — so citations lead to the exact words.</p>
+                <p className="meta mt-1">Permanent identifiers — {fileNo(17)} § 3 ¶ 12 — so citations lead to the exact words.</p>
               </div>
             </li>
             <li>
@@ -211,7 +280,7 @@ export default async function Home() {
               <ul>
                 <li>Browse and search every record</li>
                 <li>Read the open collection in full</li>
-                <li>Dossiers, provenance and related records</li>
+                <li>Dossiers, provenance, plates and related records</li>
                 <li>A few Archivist questions each day</li>
               </ul>
               <div>
@@ -221,7 +290,9 @@ export default async function Home() {
               </div>
             </div>
             <div className="tier tier--inner">
-              <span className="label label--accent">Inner Archive</span>
+              <span className="label" style={{ color: "var(--brass)" }}>
+                Inner Archive
+              </span>
               <p className="tier__price">
                 {formatPrice(MEMBERSHIP.monthlyPriceCents)}
                 <span className="meta" style={{ fontFamily: "var(--sans)" }}> / month</span>
@@ -245,14 +316,16 @@ export default async function Home() {
 
       <section className="band" style={{ borderBottom: 0 }}>
         <div className="wrap split">
-          <div className="edition-object" aria-hidden="true">
-            <span className="edition-object__foot">Restricted Edition</span>
-            <span className="edition-object__title">
-              A Treatise
-              <br />
-              of Witchcraft
-            </span>
-            <span className="edition-object__foot">{fileNo(1)} · 1616</span>
+          <div style={{ maxWidth: 300, justifySelf: "center", width: "100%" }}>
+            <BookCover
+              item={{
+                accession: 1,
+                title: "A Treatise of Witchcraft",
+                category: { slug: "witchcraft", name: "Witchcraft & Demonology" },
+                authors: [{ slug: "alexander-roberts", name: "Alexander Roberts", role: "author" }],
+              }}
+              size="lg"
+            />
           </div>
           <div>
             <span className="label">Restricted Editions</span>
@@ -262,7 +335,8 @@ export default async function Home() {
               spelling intact, sewn and bound to last. Each will carry an Archive Seal connecting the book to its
               dossier.
             </p>
-            <div className="mt-4">
+            <div className="row mt-4" style={{ gap: 20 }}>
+              <Seal lettered className="footer-seal" />
               <Link href="/editions" className="link-arrow">
                 Editions in preparation →
               </Link>
@@ -270,6 +344,7 @@ export default async function Home() {
           </div>
         </div>
       </section>
+      <Ornament />
     </>
   );
 }

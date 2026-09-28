@@ -64,6 +64,13 @@ structure:
   heading: "^(TRANSLATOR’S PREFACE|Part [IVX]+\\.|Section [IVX]+\\.|NOTES\\.|BIBLIOGRAPHY\\.)$"
   heading_title_next: true
   end_at: "^INDEX\\.$"
+plates:
+  - path: /plates/hidden-symbolism-of-alchemy/figure-2.jpg
+    caption: "Figure 2. “REBIS is represented as an hermetic hermaphrodite.”"
+  - path: /plates/hidden-symbolism-of-alchemy/figure-1.jpg
+    caption: "Figure 1."
+  - path: /plates/hidden-symbolism-of-alchemy/figure-3.jpg
+    caption: "Figure 3. “Very frequently one finds in the alchemists images of death.”"
 related:
   - { slug: the-story-of-alchemy }
   - { slug: the-rosicrucian-mysteries }
