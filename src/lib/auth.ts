@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
+import { findDatabaseUrl } from "@/db/url";
 import { account, session, user, verification } from "@/db/schema";
 
 /**
@@ -36,7 +37,7 @@ async function trustedOrigins(request?: Request) {
 const secret =
   process.env.BETTER_AUTH_SECRET ||
   createHash("sha256")
-    .update(`restricted-press-auth:${process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "dev"}`)
+    .update(`restricted-press-auth:${findDatabaseUrl() ?? "dev"}`)
     .digest("hex");
 
 export const auth = betterAuth({

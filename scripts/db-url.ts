@@ -3,17 +3,16 @@
  * Prefers the direct (unpooled) connection that Neon/Supabase integrations
  * provide, since schema changes should not go through a connection pooler.
  */
+import { findDatabaseUrl } from "../src/db/url";
+
 export function scriptDatabaseUrl() {
-  const url =
-    process.env.DATABASE_URL_UNPOOLED ??
-    process.env.POSTGRES_URL_NON_POOLING ??
-    process.env.DATABASE_URL ??
-    process.env.POSTGRES_URL;
+  const url = findDatabaseUrl({ direct: true });
   if (!url) {
     console.error(
       "\n✗ No database is connected.\n" +
         "  Connect a Postgres database to this project (Vercel: Storage → Neon → Connect),\n" +
-        "  then redeploy. Expected DATABASE_URL or POSTGRES_URL to be set.\n",
+        "  then redeploy. No environment variable containing a postgres:// address was found.\n" +
+        `  Database-looking variables present: ${Object.keys(process.env).filter((k) => /DATABASE|POSTGRES|PG|NEON/i.test(k)).join(", ") || "none"}\n`,
     );
     process.exit(1);
   }

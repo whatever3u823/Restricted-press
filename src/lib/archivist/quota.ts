@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, count, eq, gt, or } from "drizzle-orm";
 import { db } from "@/db";
+import { findDatabaseUrl } from "@/db/url";
 import { researchQueries } from "@/db/schema";
 import { ARCHIVIST_LIMITS } from "@/lib/config";
 import type { Viewer } from "@/lib/viewer";
@@ -12,7 +13,7 @@ export const VISITOR_COOKIE = "rp_vid";
 export function clientHash(headers: Headers) {
   const ip = headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip") || "unknown";
   return createHash("sha256")
-    .update(`${process.env.BETTER_AUTH_SECRET ?? process.env.DATABASE_URL ?? ""}:${ip}`)
+    .update(`${process.env.BETTER_AUTH_SECRET ?? findDatabaseUrl() ?? ""}:${ip}`)
     .digest("hex")
     .slice(0, 32);
 }

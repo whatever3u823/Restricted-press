@@ -1,10 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { findDatabaseUrl } from "./url";
 
 /** Neon and Supabase integrations on Vercel may set either name. */
 export function databaseUrl() {
-  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+  const url = findDatabaseUrl();
   if (!url) throw new Error("DATABASE_URL is not set — connect a Postgres database.");
   return url;
 }
