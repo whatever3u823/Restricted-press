@@ -49,6 +49,34 @@ Payments are not connected. With `ALLOW_DEV_UPGRADE=true`, a signed-in reader
 can activate a preview Inner Archive membership from `/membership` (no charge).
 Set it to `false` in any public deployment.
 
+## Deploying to Vercel
+
+The repository deploys as-is. `vercel.json` runs `npm run vercel-build`, which
+applies migrations, loads the archive texts into the database (idempotent,
+~10s), then builds Next.js — so a fresh database is populated on first deploy.
+
+1. **Import** the GitHub repo in Vercel (framework: Next.js, settings detected).
+2. **Database:** add Neon from Vercel's Storage / Marketplace tab and connect
+   it to the project. It sets `DATABASE_URL`. (Any Postgres 14+ works; use a
+   pooled connection string on serverless.)
+3. **Environment variables** (Production, and Preview if you use previews):
+
+   | Variable | Value |
+   |---|---|
+   | `BETTER_AUTH_SECRET` | 32+ random characters (`openssl rand -hex 32`) |
+   | `BETTER_AUTH_URL` | Your production URL, e.g. `https://restricted-press.vercel.app` |
+   | `ALLOW_DEV_UPGRADE` | `true` only for a private preview; `false` for anything public |
+   | `ANTHROPIC_API_KEY` | Optional — enables written Archivist answers |
+   | `ARCHIVIST_MODEL` | Optional — defaults to `claude-opus-5` |
+
+4. **Deploy**, then redeploy once after setting `BETTER_AUTH_URL` if you set
+   it after the first deploy.
+
+Every build runs migrations against the connected database. With Neon's
+Vercel integration, preview deployments get their own database branch; if you
+point previews at the production database instead, schema changes in a
+preview branch will reach production.
+
 ## Commands
 
 | Command | What it does |
