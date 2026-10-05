@@ -1,134 +1,110 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { MembershipActions } from "@/components/membership-actions";
-import { ARCHIVIST_LIMITS, formatPrice, MEMBERSHIP } from "@/lib/config";
+import { FellowshipActions } from "@/components/fellowship-actions";
+import { ARCHIVIST_LIMITS, FELLOWSHIP, formatPrice, LIBRARY_LIMITS } from "@/lib/config";
 import { getViewer } from "@/lib/viewer";
 
-export const metadata: Metadata = { title: "Access levels" };
+export const metadata: Metadata = { title: "Membership" };
 
-const ROWS: [string, string, string][] = [
-  ["Browse, search and read the open collection", "✓", "✓"],
-  ["Files, provenance and rights records", "✓", "✓"],
-  ["Archivist questions per day", `${ARCHIVIST_LIMITS.visitor} as a visitor · ${ARCHIVIST_LIMITS.reader} with a free account`, "Unlimited"],
-  ["Deep research — wider search, twice the sources, cross-text comparison", "—", "✓"],
-  ["Conceptual passage search with historical vocabulary and spellings", "Exact words", "✓"],
-  ["Personal library of files", "—", "✓"],
-  ["Saved passages with research notes", "—", "✓"],
-  ["Inner Archive texts", "File record only", "✓"],
-];
-
-export default async function MembershipPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+export default async function MembershipPage() {
   const viewer = await getViewer();
-  const { from } = await searchParams;
-  const price = formatPrice(MEMBERSHIP.monthlyPriceCents);
+  const price = formatPrice(FELLOWSHIP.monthlyPriceCents);
+  const signedIn = Boolean(viewer.user);
 
   return (
-    <div className="wrap">
-      <header className="page-head">
-        <nav className="breadcrumb" aria-label="Breadcrumb">
-          <Link href="/">Restricted Press</Link> <span>/</span> <span>Access</span>
-        </nav>
-        {from ? (
-          <div className="notice mt-3" style={{ maxWidth: 640 }}>
-            <strong>That text is held in the Inner Archive.</strong> Its file record remains open to all.{" "}
-            <Link href={`/archive/${from}`}>Return to the file →</Link>
-          </div>
-        ) : null}
+    <div className={signedIn ? "page" : "wrap"} style={signedIn ? undefined : { paddingTop: "clamp(48px, 8vw, 96px)" }}>
+      <header className="page-head" style={{ display: "block" }}>
+        <span className="eyebrow eyebrow--rule">Membership</span>
+        <h1 className="h1" style={{ maxWidth: "18ch" }}>
+          Two ways to <em>keep a library.</em>
+        </h1>
+        <p className="page-head__sub">
+          Every member has a private library, a reading room and the Archivist. The Fellowship is for those who read for
+          a living — or as if they did.
+        </p>
       </header>
 
-      <section className="page-head__row" style={{ alignItems: "end" }}>
-        <div>
-          <span className="file-no">Instrument 04 · Access</span>
-          <h1 className="title-xl mt-2">Access levels</h1>
-          <p className="lede mt-3" style={{ maxWidth: "44ch" }}>
-            The archive is open to the public. The Inner Archive is for readers who mean to work in it: unlimited
-            research with the Archivist, enquiry across texts, and a private register of files, passages and notes.
-          </p>
-        </div>
-        <p className="class-mark" style={{ whiteSpace: "normal", textAlign: "right" }}>
-          Your access: {viewer.plan === "inner" ? "Inner Archive" : viewer.plan === "reader" ? "Public · registered reader" : "Public · visitor"}
-        </p>
-      </section>
-
-      <section className="tiers mt-6" aria-label="Access levels">
-        <div className="tier">
-          <span className="tier__level">Level 01 · Public access</span>
-          <span className="tier__name">The Archive</span>
-          <p className="tier__price">
-            Open <span className="meta" style={{ fontFamily: "var(--sans)" }}>· no charge</span>
+      <div className="plans mt-3">
+        <section className="panel plan" aria-labelledby="plan-member">
+          <div>
+            <span className="eyebrow">Member</span>
+            <h2 className="h2 mt-2" id="plan-member">
+              The library
+            </h2>
+          </div>
+          <p className="plan__price">
+            Free<small>always</small>
           </p>
           <ul>
-            <li>Browse, search and read the open collection</li>
-            <li>Files, provenance and rights records</li>
-            <li>
-              {ARCHIVIST_LIMITS.visitor} Archivist queries a day as a visitor · {ARCHIVIST_LIMITS.reader} with a free account
-            </li>
-            <li>Passage search by exact words</li>
+            <li>Up to {LIBRARY_LIMITS.member} documents — PDF, EPUB, Word, text, Markdown, HTML</li>
+            <li>The reading room: three lighting modes, highlights and notes</li>
+            <li>Search inside every page you own</li>
+            <li>{ARCHIVIST_LIMITS.member} questions to the Archivist each day, every answer cited</li>
+            <li>Collections, connections and the author map</li>
           </ul>
-          {viewer.plan === "visitor" ? (
-            <Link href="/sign-up?next=/membership" className="link-arrow">
-              Register as a reader
-            </Link>
-          ) : (
-            <span className="stamp">{viewer.plan === "reader" ? "Your current level" : "Included"}</span>
-          )}
-        </div>
-        <div className="tier tier--inner">
-          <span className="tier__level">Level 02 · Inner Archive</span>
-          <span className="tier__name">The Inner Archive</span>
+          <div className="plan__foot">
+            {signedIn ? (
+              viewer.plan === "member" ? (
+                <p className="eyebrow">● Your current membership</p>
+              ) : (
+                <p className="eyebrow">Included in the Fellowship</p>
+              )
+            ) : (
+              <a href="/sign-up" className="btn btn--block">
+                Open your library
+              </a>
+            )}
+          </div>
+        </section>
+
+        <section className="panel ticks plan plan--fellow" aria-labelledby="plan-fellow">
           <div>
-            <p className="tier__price">
+            <span className="eyebrow eyebrow--brass">Fellow</span>
+            <h2 className="h2 mt-2" id="plan-fellow">
+              The Fellowship
+            </h2>
+          </div>
+          <div>
+            <p className="plan__price">
               {price}
-              <span className="meta" style={{ fontFamily: "var(--sans)" }}> / month</span>
+              <small>a month</small>
             </p>
-            <p className="meta mt-1">{MEMBERSHIP.pricingNote}</p>
+            <p className="hint mt-2">{FELLOWSHIP.pricingNote}</p>
           </div>
           <ul>
-            <li>Unlimited research with the Archivist</li>
-            <li>Deep research — wider search, twice the sources, cross-text comparison</li>
-            <li>Conceptual passage search with historical vocabulary and spellings</li>
-            <li>Inner Archive texts, read in full</li>
-            <li>A private library of files and saved passages with research notes</li>
+            <li>A library without practical limit — up to {LIBRARY_LIMITS.fellow.toLocaleString("en-US")} documents</li>
+            <li>Unlimited questions to the Archivist</li>
+            <li>Deep research: a wider search, twice the sources, and comparison across authors</li>
+            <li>Everything in the membership</li>
           </ul>
-          <MembershipActions plan={viewer.plan} devUpgrade={process.env.ALLOW_DEV_UPGRADE === "true"} priceLabel={`${price}/month`} />
-        </div>
-      </section>
+          <div className="plan__foot">
+            <FellowshipActions
+              signedIn={signedIn}
+              plan={viewer.plan}
+              preview={process.env.ALLOW_DEV_UPGRADE === "true"}
+              priceLabel={`${price}/month`}
+            />
+          </div>
+        </section>
+      </div>
 
-      <section className="mt-8">
-        <div className="section-head">
-          <h2>Schedule of access</h2>
+      <section className="mt-6">
+        <div className="block__head">
+          <h2>On privacy</h2>
         </div>
-        <div className="table-scroll">
-          <table className="rights-table" style={{ fontSize: 15 }}>
-            <thead>
-              <tr>
-                <th style={{ width: "52%" }}>Provision</th>
-                <th>Public access</th>
-                <th>Inner Archive</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map(([k, a, b]) => (
-                <tr key={k}>
-                  <td style={{ fontFamily: "var(--serif)", fontSize: "1.08rem" }}>{k}</td>
-                  <td className="muted">{a}</td>
-                  <td>{b}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="principles" style={{ borderTop: 0 }}>
+          <div style={{ paddingTop: 0 }}>
+            <h3>Your library is yours</h3>
+            <p>Documents are visible to your account alone. Nothing you upload is shared, listed or published.</p>
+          </div>
+          <div style={{ paddingTop: 0 }}>
+            <h3>Text, not files</h3>
+            <p>Files are read in your browser; Athenaeum keeps their text, which is what makes them searchable.</p>
+          </div>
+          <div style={{ paddingTop: 0 }}>
+            <h3>Answers on request</h3>
+            <p>Passages are sent to the Archivist’s language model only to answer the question you ask of them.</p>
+          </div>
         </div>
-      </section>
-
-      <section className="mt-8 split" style={{ alignItems: "start" }}>
-        <div>
-          <span className="label">In preparation for members</span>
-          <h2 className="title-l mt-1">Reading paths &amp; research collections</h2>
-        </div>
-        <p className="lede">
-          Guided sequences through the archive — from the Hermetic texts to their Victorian interpreters, or through the
-          English witch trials in the order they happened — and collections you can assemble and annotate.
-        </p>
       </section>
     </div>
   );

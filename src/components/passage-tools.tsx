@@ -1,81 +1,121 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { toggleSavedPassage } from "@/app/actions";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { toggleHighlight } from "@/app/actions";
+import { AskIcon, HighlightIcon, NoteIcon } from "./icons";
 
-const BookmarkIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-    <path d="M4 2.5h8v11l-4-3-4 3z" />
-  </svg>
-);
-const AskIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-    <circle cx="7" cy="7" r="4.5" />
-    <path d="M10.5 10.5 14 14" />
-  </svg>
-);
-
-export function PassageTools({ passageId, slug, saved: initial }: { passageId: string; slug: string; saved: boolean }) {
-  const [saved, setSaved] = useState(initial);
-  const [message, setMessage] = useState<{ text: string; href?: string; cta?: string } | null>(null);
+/** Mark, annotate, or ask the Archivist about one passage. */
+export function PassageTools({
+  documentId,
+  passageId,
+  marked: initialMarked,
+  note: initialNote,
+}: {
+  documentId: number;
+  passageId: string;
+  marked: boolean;
+  note: string | null;
+}) {
+  const [marked, setMarked] = useState(initialMarked);
+  const [note, setNote] = useState(initialNote);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(initialNote ?? "");
+  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const ref = useRef<HTMLSpanElement>(null);
+
+  // Reflect the mark on the passage itself.
+  useEffect(() => {
+    const p = ref.current?.closest(".psg") as HTMLElement | null;
+    if (p) p.dataset.marked = marked ? "true" : "";
+  }, [marked]);
+
+  // On touch screens, tapping a passage reveals its tools.
+  useEffect(() => {
+    const p = ref.current?.closest(".psg") as HTMLElement | null;
+    if (!p) return;
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest("button, a, textarea")) return;
+      if (window.getSelection()?.toString()) return;
+      if (window.matchMedia("(max-width: 920px)").matches) p.dataset.open = p.dataset.open === "true" ? "" : "true";
+    };
+    p.addEventListener("click", onClick);
+    return () => p.removeEventListener("click", onClick);
+  }, []);
+
+  const mark = () =>
+    start(async () => {
+      const r = await toggleHighlight(passageId);
+      if (r.ok) {
+        setMarked(r.marked);
+        if (!r.marked) setNote(null);
+        setError(null);
+      } else setError(r.message);
+    });
+
+  const saveNote = () =>
+    start(async () => {
+      const r = await toggleHighlight(passageId, draft);
+      if (r.ok) {
+        setMarked(true);
+        setNote(draft.trim() || null);
+        setEditing(false);
+        setError(null);
+      } else setError(r.message);
+    });
 
   return (
-    <span className="passage__tools">
-      <button
-        type="button"
-        className="icon-btn"
-        aria-pressed={saved}
-        aria-label={saved ? `Remove saved passage ${passageId}` : `Save passage ${passageId}`}
-        title={saved ? "Saved — click to remove" : "Save passage"}
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            const r = await toggleSavedPassage(passageId);
-            if (r.ok) {
-              setSaved(r.saved);
-              setMessage(null);
-            } else {
-              setMessage({
-                text: r.message,
-                href: r.reason === "signin" ? "/sign-in" : r.reason === "gate" ? "/membership" : undefined,
-                cta: r.reason === "signin" ? "Sign in" : "Inner Archive",
-              });
-            }
-          })
-        }
-      >
-        <BookmarkIcon />
-      </button>
-      <Link
-        className="icon-btn"
-        href={`/archivist?scope=${slug}&passage=${passageId}`}
-        aria-label={`Ask the Archivist about passage ${passageId}`}
-        title="Ask the Archivist about this passage"
-      >
-        <AskIcon />
-      </Link>
-      {message ? (
-        <span
-          role="status"
-          style={{
-            position: "absolute",
-            right: 40,
-            top: 0,
-            width: 220,
-            background: "var(--paper)",
-            border: "1px solid var(--rule-strong)",
-            padding: "8px 10px",
-            fontFamily: "var(--sans)",
-            fontSize: 13,
-            lineHeight: 1.4,
-            zIndex: 5,
-          }}
+    <>
+      <span className="psg__tools" ref={ref}>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-pressed={marked}
+          aria-label={marked ? "Remove highlight" : "Highlight passage"}
+          title={marked ? "Remove highlight" : "Highlight"}
+          onClick={mark}
+          disabled={pending}
         >
-          {message.text} {message.href ? <Link href={message.href}>{message.cta} →</Link> : null}
+          <HighlightIcon />
+        </button>
+        <button type="button" className="icon-btn" aria-label="Add a note" title="Note" onClick={() => setEditing((e) => !e)}>
+          <NoteIcon />
+        </button>
+        <Link className="icon-btn" href={`/archivist?doc=${documentId}&passage=${passageId}`} aria-label="Ask the Archivist about this passage" title="Ask the Archivist">
+          <AskIcon />
+        </Link>
+      </span>
+      {editing ? (
+        <span className="psg__note" style={{ display: "block" }}>
+          <textarea
+            className="textarea"
+            rows={3}
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="A note on this passage"
+            aria-label="Note on this passage"
+            maxLength={4000}
+            style={{ fontSize: 14 }}
+          />
+          <span className="row mt-1" style={{ ["--gap" as string]: "6px" }}>
+            <button type="button" className="btn btn--sm btn--primary" onClick={saveNote} disabled={pending}>
+              Save note
+            </button>
+            <button type="button" className="btn btn--sm btn--quiet" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+          </span>
+        </span>
+      ) : note ? (
+        <span className="psg__note">{note}</span>
+      ) : null}
+      {error ? (
+        <span className="psg__note" role="status" style={{ display: "block", borderLeftColor: "var(--signal)" }}>
+          {error}
         </span>
       ) : null}
-    </span>
+    </>
   );
 }

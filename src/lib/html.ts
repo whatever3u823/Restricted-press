@@ -8,6 +8,5 @@ export function markedSnippet(snippet: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/&lt;mark&gt;/g, "<mark>")
-    .replace(/&lt;\/mark&gt;/g, "</mark>")
-    .replace(/_([^_\n]+)_/g, "<em>$1</em>");
+    .replace(/&lt;\/mark&gt;/g, "</mark>");
 }

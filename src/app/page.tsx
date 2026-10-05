@@ -1,264 +1,197 @@
-import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
-import { BookCover, FileCard, IndexHead } from "@/components/period";
-import { RequestForm } from "@/components/request-form";
-import { db } from "@/db";
-import { subjects } from "@/db/schema";
-import { getFacets, getFeatured, getStats, passageRef } from "@/lib/archive";
-import { archivistConfigured } from "@/lib/archivist";
-import { markedSnippet } from "@/lib/html";
-import { retriever } from "@/lib/search/retriever";
-import { toConcepts } from "@/lib/search/vocabulary";
+import { redirect } from "next/navigation";
+import { ARCHIVIST_LIMITS, LIBRARY_LIMITS } from "@/lib/config";
 import { getViewer } from "@/lib/viewer";
 
-export const dynamic = "force-dynamic";
-
-const SAMPLE_QUESTION = "What did accused witches confess about the Devil's mark?";
-
-export default async function Home() {
-  const [stats, featured, facets, sample, viewer, categories] = await Promise.all([
-    getStats(),
-    getFeatured(8),
-    getFacets(),
-    retriever.retrieve({ concepts: toConcepts(SAMPLE_QUESTION, true), limit: 4, perWorkCap: 1 }),
-    getViewer(),
-    db.select().from(subjects).where(eq(subjects.kind, "category")).orderBy(asc(subjects.name)),
-  ]);
-  const llm = archivistConfigured();
-  const counts = new Map(facets.categories.map((c) => [c.slug, c.n]));
-  const collections = categories.filter((c) => counts.get(c.slug));
-  const stack = featured.slice(0, 3);
+export default async function Landing() {
+  const viewer = await getViewer();
+  if (viewer.user) redirect("/library");
 
   return (
     <>
-      {/* ── Hero ── */}
       <section className="hero">
         <div className="wrap hero__grid">
           <div>
-            <div className="hero__kicker reveal">
-              <span className="file-no">Archive 01</span>
-              <span className="label">Restricted Press — The Archive</span>
-            </div>
-            <h1 className="display reveal" style={{ ["--i" as string]: 1 }}>
-              Restricted Books.
+            <span className="eyebrow eyebrow--rule rise">Private library &amp; research instrument</span>
+            <h1 className="display rise" style={{ ["--i" as string]: 1 }}>
+              Your library.
               <br />
-              Available Again<span style={{ color: "var(--red)" }}>.</span>
+              <em>Total recall.</em>
             </h1>
-            <p className="lede hero__lede reveal" style={{ ["--i" as string]: 2 }}>
-              Forgotten texts on magic, witchcraft, alchemy and the hidden traditions — recovered from the printed
-              record, catalogued as files, and open to research.
+            <p className="lede hero__lede rise" style={{ ["--i" as string]: 2 }}>
+              Athenaeum keeps the books, papers and articles you collect — and the Archivist, a librarian that has
+              read every page of them. Ask it anything. It answers from your library alone, and cites the sentence.
             </p>
-            <div className="hero__actions reveal" style={{ ["--i" as string]: 3 }}>
-              <Link href="/archive" className="btn">
-                Enter the archive
+            <div className="hero__cta rise" style={{ ["--i" as string]: 3 }}>
+              <Link href="/sign-up" className="btn btn--primary btn--lg">
+                Open your library
               </Link>
-              <Link href="/archivist" className="btn btn--ghost">
-                Consult the Archivist
+              <Link href="/sign-in" className="btn btn--lg">
+                Sign in
               </Link>
             </div>
-          </div>
-          <div className="hero__stack fade-in" aria-hidden="true">
-            {stack.map((w) => (
-              <BookCover key={w.id} item={w} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="wrap" aria-label="Accession register">
-        <div className="register">
-          <div>
-            <span className="label">Files held</span>
-            <span className="register__v">{String(stats.records).padStart(4, "0")}</span>
-          </div>
-          <div>
-            <span className="label">Full texts</span>
-            <span className="register__v">{String(stats.texts).padStart(4, "0")}</span>
-          </div>
-          <div>
-            <span className="label">Passages indexed</span>
-            <span className="register__v">{stats.passages.toLocaleString()}</span>
-          </div>
-          <div>
-            <span className="label">Words preserved</span>
-            <span className="register__v">{stats.words.toLocaleString()}</span>
-          </div>
-          <div>
-            <span className="label">Earliest file</span>
-            <span className="register__v">{stats.earliest}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 01 The Archive ── */}
-      <section className="band">
-        <div className="wrap">
-          <IndexHead no="01" title="The Archive" />
-          <div className="split" style={{ alignItems: "start" }}>
-            <p className="title-l" style={{ maxWidth: "20ch", fontFamily: "var(--display)" }}>
-              An institution for texts that were printed, suppressed, or simply forgotten.
+            <p className="hero__fine rise" style={{ ["--i" as string]: 4 }}>
+              <span>PDF, EPUB, Word, text</span>
+              <span>Private to your account</span>
+              <span>Every answer cited</span>
             </p>
-            <ol className="numbered">
+          </div>
+
+          <figure className="panel ticks specimen rise" style={{ ["--i" as string]: 3 }} aria-label="An example inquiry to the Archivist">
+            <div className="specimen__bar">
+              <span>The Archivist</span>
+              <span className="brass">● Source-bound</span>
+            </div>
+            <p className="specimen__q">Where do Seneca and Machiavelli part ways on fortune?</p>
+            <div className="specimen__a">
+              <p>
+                <span className="cited">Both treat fortune as a force to be prepared for rather than prayed to</span>
+                <span className="cite">1</span>
+                <span className="cite">2</span>. They part on what preparation is for.{" "}
+                <span className="cited">Machiavelli wants the prince to seize her — boldness over caution</span>
+                <span className="cite">2</span>; <span className="cited">Seneca wants a man who has nothing she can take</span>
+                <span className="cite">1</span>.
+              </p>
+            </div>
+            <ol className="specimen__src" role="list">
               <li>
-                <div>
-                  <strong>Every book is a file.</strong>
-                  <p className="meta mt-1">Catalogued with its edition, imprint, provenance and rights — assessed part by part.</p>
-                </div>
+                <span className="brass mono">1</span>
+                <span>
+                  <b>On Providence</b> — Seneca
+                </span>
+                <span className="ref">§1 ¶2</span>
               </li>
               <li>
-                <div>
-                  <strong>Every passage has an address.</strong>
-                  <p className="meta mt-1">Cited as FILE 0017 / §03 / ¶12, so a reference leads to the exact words.</p>
-                </div>
-              </li>
-              <li>
-                <div>
-                  <strong>Nothing is modernised.</strong>
-                  <p className="meta mt-1">Spelling and punctuation are preserved as printed.</p>
-                </div>
+                <span className="brass mono">2</span>
+                <span>
+                  <b>The Prince</b> — Machiavelli
+                </span>
+                <span className="ref">§25 ¶1 · p. 98</span>
               </li>
             </ol>
-          </div>
+          </figure>
         </div>
       </section>
 
-      {/* ── 02 Featured files ── */}
-      <section className="band">
+      <section className="band" id="method">
         <div className="wrap">
-          <IndexHead
-            no="02"
-            title="Featured files"
-            aside={
-              <Link href="/archive" className="link-arrow">
-                Full catalogue
-              </Link>
-            }
-          />
-          <div className="files">
-            {featured.slice(0, 4).map((w, i) => (
-              <FileCard key={w.id} item={w} i={i} />
+          <div className="band__head">
+            <div>
+              <span className="eyebrow eyebrow--brass">The method</span>
+              <h2 className="h1 mt-2">Four instruments. One discipline.</h2>
+            </div>
+            <p className="lede">
+              Most reading software stores files. Athenaeum understands them — every chapter, every paragraph, every
+              author — so that what you have read is never lost to you again.
+            </p>
+          </div>
+          <div className="pillars">
+            <div className="pillar">
+              <span className="pillar__n">01</span>
+              <h3>Collect</h3>
+              <p>
+                Bring PDFs, EPUBs, Word documents and text. Athenaeum extracts the text, finds the chapters, and
+                files each document — catalogued on arrival by the Archivist.
+              </p>
+            </div>
+            <div className="pillar">
+              <span className="pillar__n">02</span>
+              <h3>Read</h3>
+              <p>
+                A reading room built for concentration: three lighting modes, adjustable type, your place kept, and
+                every passage marked, annotated and addressable.
+              </p>
+            </div>
+            <div className="pillar">
+              <span className="pillar__n">03</span>
+              <h3>Interrogate</h3>
+              <p>
+                Put questions to the Archivist. It searches every page you own and answers only from them, citing
+                the exact sentences — and the page, where there is one.
+              </p>
+            </div>
+            <div className="pillar">
+              <span className="pillar__n">04</span>
+              <h3>Connect</h3>
+              <p>
+                See where your authors converge. Athenaeum maps the ground shared between documents and between
+                authors, and the Archivist will trace it for you.
+              </p>
+            </div>
+          </div>
+          <div className="formats" aria-label="Supported formats">
+            {["PDF", "EPUB", "DOCX", "TXT", "MARKDOWN", "HTML"].map((f) => (
+              <span key={f}>{f}</span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 03 The collection ── */}
       <section className="band">
-        <div className="wrap">
-          <IndexHead
-            no="03"
-            title="The collection"
-            aside={
-              <Link href="/collections" className="link-arrow">
-                All collections
-              </Link>
-            }
-          />
-          <ul className="collection-index">
-            {collections.map((c, i) => (
-              <li key={c.slug}>
-                <Link href={`/subjects/${c.slug}`}>
-                  <span className="collection-index__no">Collection {String(i + 1).padStart(2, "0")}</span>
-                  <span className="collection-index__name">
-                    {c.name}
-                    {c.description ? <span className="collection-index__desc">{c.description}</span> : null}
-                  </span>
-                  <span className="collection-index__n">
-                    {counts.get(c.slug)} {counts.get(c.slug) === 1 ? "file" : "files"}
-                  </span>
-                  <span className="collection-index__arrow">→</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="wrap band__head" style={{ marginBottom: 0, alignItems: "start" }}>
+          <div>
+            <span className="eyebrow eyebrow--brass">The Archivist</span>
+            <h2 className="h1 mt-2">
+              Perfect recall.
+              <br />
+              <em>No imagination.</em>
+            </h2>
+          </div>
+          <div>
+            <p className="lede">
+              The Archivist is not a chatbot with opinions. It is a research librarian bound to your shelves: it
+              reads before it speaks, and it shows you where it read.
+            </p>
+            <dl className="kv mt-4" style={{ gridTemplateColumns: "180px minmax(0,1fr)" }}>
+              <dt>Source</dt>
+              <dd>Your library, and nothing else</dd>
+              <dt>Citation</dt>
+              <dd>Sentence-level, with section and page</dd>
+              <dt>Verification</dt>
+              <dd>Every quotation checked against the text; anything unverifiable is flagged</dd>
+              <dt>Candour</dt>
+              <dd>When your library holds no answer, it says so</dd>
+              <dt>Deep research</dt>
+              <dd>Compares authors across documents and traces ideas between them</dd>
+            </dl>
+          </div>
         </div>
       </section>
 
-      {/* ── 04 The Archivist ── */}
       <section className="band">
         <div className="wrap">
-          <IndexHead no="04" title="The Archivist" />
-          <div className="split" style={{ alignItems: "start" }}>
+          <span className="eyebrow">Principles</span>
+          <div className="principles mt-3">
             <div>
-              <h2 className="title-xl">The Archivist</h2>
-              <p className="label label--red mt-3">A research instrument for the restricted collection</p>
-              <p className="lede mt-4" style={{ maxWidth: "36ch" }}>
-                It reads the archive passage by passage and answers only from what it finds — citing file, section and
-                paragraph for every claim.
-              </p>
-              <div className="row mt-4">
-                <Link href={`/archivist?q=${encodeURIComponent(SAMPLE_QUESTION)}`} className="btn btn--accent">
-                  Run this query
-                </Link>
-                <Link href="/archivist" className="link-arrow">
-                  Open the terminal
-                </Link>
-              </div>
+              <h3>Private by design</h3>
+              <p>Your library is visible to your account alone. Documents are never shared, listed or published.</p>
             </div>
-            <div className="terminal">
-              <dl className="terminal__status">
-                <div>
-                  <dt>Collection</dt>
-                  <dd>Restricted Press</dd>
-                </div>
-                <div>
-                  <dt>Mode</dt>
-                  <dd className="red">Source-bound</dd>
-                </div>
-                <div>
-                  <dt>Files</dt>
-                  <dd>{stats.texts}</dd>
-                </div>
-                <div>
-                  <dt>Output</dt>
-                  <dd>{llm ? "Cited answer" : "Sources only"}</dd>
-                </div>
-              </dl>
-              <div style={{ position: "relative", padding: "22px 24px 8px" }}>
-                <span className="label">Query</span>
-                <p className="mt-1" style={{ fontFamily: "var(--serif)", fontSize: "1.3rem", lineHeight: 1.35 }}>
-                  {SAMPLE_QUESTION}
-                </p>
-              </div>
-              <div style={{ position: "relative", padding: "12px 24px 24px" }}>
-                <span className="label">Sources retrieved</span>
-                <ol className="retrieved mt-1">
-                  {sample.map((h, i) => (
-                    <li key={h.id}>
-                      <span className="n">{String(i + 1).padStart(2, "0")}</span>
-                      <Link href={`/p/${h.id}`}>{passageRef(h.id)}</Link>
-                      <span className="t">{h.title}</span>
-                      <span />
-                    </li>
-                  ))}
-                </ol>
-                {sample[0] ? (
-                  <p className="source-item__quote mt-2" dangerouslySetInnerHTML={{ __html: markedSnippet(sample[0].snippet) }} />
-                ) : null}
-              </div>
+            <div>
+              <h3>Evidence over eloquence</h3>
+              <p>An answer you cannot check is a rumour. Every claim the Archivist makes leads back to your text.</p>
+            </div>
+            <div>
+              <h3>Built for depth</h3>
+              <p>No feeds, no streaks, no noise. An instrument for the long work of understanding, not for attention.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 05 Request a title ── */}
-      <section className="band">
-        <div className="wrap">
-          <IndexHead no="05" title="Request a title" />
-          <div className="split" style={{ alignItems: "start" }}>
-            <div>
-              <h2 className="title-l" style={{ maxWidth: "18ch" }}>
-                A text the archive does not yet hold?
-              </h2>
-              <p className="lede mt-3" style={{ maxWidth: "38ch" }}>
-                File a request. Each is entered in the accession register and assessed for provenance and rights
-                before a file is opened.
-              </p>
-            </div>
-            <div className="frame">
-              <RequestForm kind="title" signedInEmail={viewer.user?.email ?? null} submitLabel="File request" />
-            </div>
-          </div>
+      <section className="wrap closing">
+        <h2 className="display">
+          Begin with <em>one book.</em>
+        </h2>
+        <p className="lede mt-3" style={{ maxWidth: "34rem", marginInline: "auto" }}>
+          A free membership holds {LIBRARY_LIMITS.member} documents and {ARCHIVIST_LIMITS.member} questions a day. The Fellowship removes every limit.
+        </p>
+        <div className="row mt-4" style={{ justifyContent: "center" }}>
+          <Link href="/sign-up" className="btn btn--primary btn--lg">
+            Open your library
+          </Link>
+          <Link href="/membership" className="btn btn--lg">
+            Membership
+          </Link>
         </div>
       </section>
     </>

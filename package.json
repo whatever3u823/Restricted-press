@@ -1,5 +1,5 @@
 {
-  "name": "restricted-press",
+  "name": "athenaeum",
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
@@ -8,26 +8,25 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
-    "ingest": "tsx --env-file=.env.local scripts/ingest.ts",
     "check:archivist": "tsx --env-file=.env.local scripts/check-archivist.ts",
-    "vercel-build": "npm run db:migrate:ci && npm run ingest:ci -- load && next build",
-    "db:migrate:ci": "tsx scripts/migrate.ts",
-    "ingest:ci": "tsx scripts/ingest.ts"
+    "vercel-build": "npm run db:migrate:ci && next build",
+    "db:migrate:ci": "tsx scripts/migrate.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
-    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource-variable/inter-tight": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
-    "@fontsource/ibm-plex-sans": "^5.3.0",
-    "@fontsource/libre-caslon-display": "^5.3.0",
     "better-auth": "^1.7.6",
     "drizzle-orm": "^0.45.3",
+    "fflate": "^0.8.3",
+    "mammoth": "^1.13.0",
     "next": "^16.3.6",
     "postgres": "^3.4.9",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "yaml": "^2.9.1",
+    "unpdf": "^1.8.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

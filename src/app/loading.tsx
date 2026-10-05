@@ -1,9 +1,8 @@
 export default function Loading() {
   return (
-    <div className="wrap">
-      <div className="working" style={{ padding: "96px 0" }}>
+    <div className="page">
+      <div className="working" style={{ paddingTop: "16vh", justifyContent: "center" }}>
         <span className="working__bar" />
-        Retrieving from the stacks
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { AnswerSource, ArchivistMode, ArchivistResult, QuotaState } from "@/lib/archivist/types";
 
@@ -10,32 +11,36 @@ type Exchange = { key: number; question: string; mode: ArchivistMode } & (
   | { state: "error"; message: string; gate?: string }
 );
 
-const fileNo = (n: number) => `FILE ${String(n).padStart(4, "0")}`;
-const pad2 = (s: string) => String(Number(s)).padStart(2, "0");
-/** "0017.003.0012" → "FILE 0017 / §03 / ¶12" — mirrors passageRef on the server. */
-const ref = (id: string) => {
-  const [a, sec, par] = id.split(".");
-  return sec && par ? `${fileNo(Number(a))} / §${pad2(sec)} / ¶${pad2(par)}` : id;
+/** "42.003.0012" → "§3 ¶12 · p. 41" (mirrors passageRef on the server). */
+const ref = (id: string, page?: number | null) => {
+  const [, sec, par] = id.split(".");
+  return `§${Number(sec)} ¶${Number(par)}${page ? ` · p. ${page}` : ""}`;
 };
 
-export function ArchivistConsole(props: {
+export type ConsoleProps = {
   initialQuestion: string;
   autoRun: boolean;
-  scope: { slug: string; title: string; file: string } | null;
-  passage: string | null;
+  initialResult: ArchivistResult | null;
+  scope: { id: number; title: string }[];
+  passage: { id: string; title: string; page: number | null } | null;
   suggestions: string[];
   quota: QuotaState;
   canDeep: boolean;
-  signedIn: boolean;
   generative: boolean;
-}) {
-  const [question, setQuestion] = useState(props.initialQuestion);
+  libraryCount: number;
+};
+
+export function ArchivistConsole(props: ConsoleProps) {
+  const router = useRouter();
+  const [question, setQuestion] = useState(props.initialResult ? "" : props.initialQuestion);
   const [mode, setMode] = useState<ArchivistMode>("standard");
   const [scope, setScope] = useState(props.scope);
   const [passage, setPassage] = useState(props.passage);
   const [quota, setQuota] = useState(props.quota);
-  const [exchanges, setExchanges] = useState<Exchange[]>([]);
-  const counter = useRef(0);
+  const [exchanges, setExchanges] = useState<Exchange[]>(
+    props.initialResult ? [{ key: 0, question: props.initialResult.question, mode: props.initialResult.mode, state: "done", result: props.initialResult }] : [],
+  );
+  const counter = useRef(1);
   const ran = useRef(false);
   const busy = exchanges.some((e) => e.state === "working");
 
@@ -49,7 +54,7 @@ export function ArchivistConsole(props: {
         const res = await fetch("/api/archivist", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ question: text, mode: m, scope: scope?.slug ?? null, passage }),
+          body: JSON.stringify({ question: text, mode: m, documents: scope.map((s) => s.id), passage: passage?.id ?? null }),
         });
         const data = await res.json();
         if (data.quota) setQuota(data.quota);
@@ -62,13 +67,14 @@ export function ArchivistConsole(props: {
                 : { key, question: text, mode: m, state: "error", message: data.error ?? "Something went wrong.", gate: data.gate },
           ),
         );
+        if (res.ok) router.refresh();
       } catch {
         setExchanges((xs) =>
-          xs.map((x) => (x.key === key ? { key, question: text, mode: m, state: "error", message: "The archive could not be reached. Check your connection and try again." } : x)),
+          xs.map((x) => (x.key === key ? { key, question: text, mode: m, state: "error", message: "The library could not be reached. Check your connection and try again." } : x)),
         );
       }
     },
-    [scope, passage],
+    [scope, passage, router],
   );
 
   useEffect(() => {
@@ -78,128 +84,153 @@ export function ArchivistConsole(props: {
     }
   }, [props.autoRun, props.initialQuestion, ask]);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!busy) void ask(question, mode);
-  };
-
   const exhausted = quota.remaining === 0;
+  const submit = () => {
+    if (busy || exhausted || question.trim().length < 3) return;
+    void ask(question, mode);
+    setQuestion("");
+  };
 
   return (
     <>
-      <div className="terminal mt-4">
-      <dl className="terminal__status">
-        <div>
-          <dt>Collection</dt>
-          <dd>{scope ? `${scope.file}` : "Restricted Press"}</dd>
-        </div>
-        <div>
-          <dt>Mode</dt>
-          <dd className="red">Source-bound · {mode === "deep" ? "Deep" : "Standard"}</dd>
-        </div>
-        <div>
-          <dt>Output</dt>
-          <dd>{props.generative ? "Cited answer" : "Sources only"}</dd>
-        </div>
-        <div>
-          <dt>Access</dt>
-          <dd>
-            <QuotaNote quota={quota} signedIn={props.signedIn} />
-          </dd>
-        </div>
-      </dl>
-      <form className="archivist-form" onSubmit={submit}>
-        {scope || passage ? (
-          <div className="row" style={{ gap: 8 }}>
-            {scope ? (
-              <span className="tag" style={{ borderColor: "var(--ink)" }}>
-                Within {scope.file} · <em>{scope.title}</em>{" "}
-                <button type="button" onClick={() => setScope(null)} aria-label="Search the whole archive instead" style={{ border: 0, background: "none", cursor: "pointer", padding: "0 0 0 4px" }}>
-                  ✕
-                </button>
-              </span>
-            ) : null}
-            {passage ? (
-              <span className="tag" style={{ borderColor: "var(--ink)" }}>
-                About ¶ {passage}{" "}
-                <button type="button" onClick={() => setPassage(null)} aria-label="Stop asking about this passage" style={{ border: 0, background: "none", cursor: "pointer", padding: "0 0 0 4px" }}>
-                  ✕
-                </button>
-              </span>
-            ) : null}
+      <div className="panel ticks terminal">
+        <dl className="terminal__status">
+          <div>
+            <dt>Library</dt>
+            <dd>
+              {scope.length
+                ? `${scope.length} document${scope.length === 1 ? "" : "s"} in scope`
+                : `${props.libraryCount} document${props.libraryCount === 1 ? "" : "s"}`}
+            </dd>
           </div>
-        ) : null}
-        <label htmlFor="archivist-q" className="label">
-          Query
-        </label>
-        <textarea
-          id="archivist-q"
-          className="archivist-input"
-          rows={2}
-          value={question}
-          maxLength={600}
-          placeholder="e.g. Find texts discussing ritual purification before invocation"
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (!busy) void ask(question, mode);
-            }
+          <div>
+            <dt>Mode</dt>
+            <dd className="on">Source-bound</dd>
+          </div>
+          <div>
+            <dt>Output</dt>
+            <dd>{props.generative ? "Cited answers" : "Sources only"}</dd>
+          </div>
+          <div>
+            <dt>Today</dt>
+            <dd>
+              {quota.limit === null ? (
+                "Unlimited"
+              ) : exhausted ? (
+                <Link href="/membership" className="signal" style={{ textDecoration: "none" }}>
+                  No questions left
+                </Link>
+              ) : (
+                `${quota.remaining} of ${quota.limit} questions left`
+              )}
+            </dd>
+          </div>
+        </dl>
+        <form
+          className="terminal__form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
           }}
-        />
-        <div className="archivist-controls">
-          <div className="mode-switch" role="group" aria-label="Research depth">
-            <button type="button" aria-pressed={mode === "standard"} onClick={() => setMode("standard")}>
-              Standard
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "deep"}
-              onClick={() => setMode("deep")}
-              title={props.canDeep ? "Wider search, more sources, comparison across texts" : "Deep research is part of the Inner Archive"}
-            >
-              Deep research {props.canDeep ? null : <LockIcon />}
-            </button>
+        >
+          {scope.length || passage ? (
+            <div className="scope-tags">
+              {scope.map((s) => (
+                <span key={s.id} className="chip" aria-current="true">
+                  Within <em style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</em>
+                  <button type="button" onClick={() => setScope((xs) => xs.filter((x) => x.id !== s.id))} aria-label={`Stop confining to ${s.title}`}>
+                    ✕
+                  </button>
+                </span>
+              ))}
+              {passage ? (
+                <span className="chip" aria-current="true">
+                  About {ref(passage.id, passage.page)}
+                  <button type="button" onClick={() => setPassage(null)} aria-label="Stop asking about this passage">
+                    ✕
+                  </button>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          <label htmlFor="archivist-q" className="sr-only">
+            Your question
+          </label>
+          <textarea
+            id="archivist-q"
+            className="query-input"
+            rows={2}
+            value={question}
+            maxLength={1000}
+            placeholder="Ask anything of your library…"
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+          />
+          <div className="terminal__controls">
+            <div className="seg" role="group" aria-label="Research depth">
+              <button type="button" aria-pressed={mode === "standard"} onClick={() => setMode("standard")}>
+                Standard
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "deep"}
+                onClick={() => setMode("deep")}
+                title={props.canDeep ? "Wider search, twice the sources, comparison across documents" : "Deep research is part of the Fellowship"}
+              >
+                Deep research {props.canDeep ? null : <span className="dim">· Fellows</span>}
+              </button>
+            </div>
+            <div className="row" style={{ ["--gap" as string]: "14px" }}>
+              <span className="hint">
+                <span className="kbd">↵</span> to ask
+              </span>
+              <button className="btn btn--primary" type="submit" disabled={busy || exhausted || question.trim().length < 3 || (mode === "deep" && !props.canDeep)}>
+                {busy ? "Consulting…" : "Consult"}
+              </button>
+            </div>
           </div>
-          <button className="btn btn--accent" type="submit" disabled={busy || exhausted || question.trim().length < 3}>
-            {busy ? "Searching…" : "Search the archive"}
-          </button>
-        </div>
-        {mode === "deep" && !props.canDeep ? (
-          <div className="notice">
-            <strong>Deep research is part of the Inner Archive.</strong> It widens the search with historical vocabulary,
-            reads twice as many passages, and compares how different texts treat your question.{" "}
-            <Link href="/membership">Unlock the deeper archive →</Link>
-          </div>
-        ) : null}
-      </form>
+          {mode === "deep" && !props.canDeep ? (
+            <div className="notice mt-3">
+              <strong>Deep research is part of the Fellowship.</strong> It widens the search, reads twice as many
+              passages, and compares how different authors treat your question.{" "}
+              <Link href="/membership" className="link">
+                The Fellowship
+              </Link>
+            </div>
+          ) : null}
+        </form>
       </div>
 
       {exchanges.length === 0 ? (
-        <div className="mt-6">
-          <span className="label">Standing queries</span>
-          <div className="suggestions mt-2">
+        <section className="mt-5">
+          <span className="eyebrow">Lines of enquiry</span>
+          <ul className="suggest mt-2" role="list" style={{ borderTop: "1px solid var(--line)" }}>
             {props.suggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  setQuestion(s);
-                  if (!busy && !exhausted) void ask(s, mode === "deep" && !props.canDeep ? "standard" : mode);
-                }}
-              >
-                {s}
-              </button>
+              <li key={s}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuestion(s);
+                    if (!busy && !exhausted) void ask(s, mode === "deep" && !props.canDeep ? "standard" : mode);
+                  }}
+                >
+                  {s}
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
           {!props.generative ? (
-            <p className="notice mt-6">
-              <strong>Retrieval-only mode.</strong> The Archivist’s interpretive layer is not enabled on this
-              installation, so it will return the passages it would read — ranked, cited and linked — without a
-              written answer.
+            <p className="notice mt-4">
+              <strong>Sources-only mode.</strong> The Archivist’s language model is not enabled on this installation, so it
+              returns the passages it would read — ranked, referenced and linked — without writing an answer.
             </p>
           ) : null}
-        </div>
+        </section>
       ) : null}
 
       {exchanges.map((x) => (
@@ -209,36 +240,9 @@ export function ArchivistConsole(props: {
   );
 }
 
-function QuotaNote({ quota, signedIn }: { quota: QuotaState; signedIn: boolean }) {
-  if (quota.limit === null) return <span>Inner Archive · unlimited</span>;
-  if (quota.remaining === 0) {
-    return (
-      <span className="red">
-        No queries left today ·{" "}
-        {signedIn ? <Link href="/membership">go unlimited</Link> : <Link href="/sign-up">create an account</Link>}
-      </span>
-    );
-  }
-  return (
-    <span>
-      {quota.remaining} of {quota.limit} queries today
-    </span>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" aria-label="Inner Archive">
-      <rect x="2" y="5.5" width="8" height="5.5" />
-      <path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" />
-    </svg>
-  );
-}
-
 function ExchangeView({ exchange: x }: { exchange: Exchange }) {
   const [active, setActive] = useState<number | null>(null);
   const root = useRef<HTMLElement>(null);
-
   const focusSource = (n: number) => {
     setActive(n);
     root.current?.querySelector(`[data-source="${n}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -246,16 +250,20 @@ function ExchangeView({ exchange: x }: { exchange: Exchange }) {
 
   return (
     <section className="exchange" ref={root} aria-live="polite" aria-busy={x.state === "working"}>
-      <p className="exchange__q">{x.question}</p>
+      <h2 className="exchange__q">{x.question}</h2>
       {x.state === "working" ? (
         <div className="working">
           <span className="working__bar" />
-          {x.mode === "deep" ? "Planning the search · reading across the archive" : "Searching the archive · reading passages"}
+          {x.mode === "deep" ? "Planning the search · reading across your library" : "Searching your library · reading passages"}
         </div>
       ) : x.state === "error" ? (
-        <div className="notice">
+        <div className="notice notice--signal mt-3">
           <strong>{x.message}</strong>{" "}
-          {x.gate ? <Link href={x.gate === "archivist.unlimited" && !x.message.includes("Inner") ? "/sign-up" : "/membership"}>Continue →</Link> : null}
+          {x.gate ? (
+            <Link href="/membership" className="link">
+              The Fellowship
+            </Link>
+          ) : null}
         </div>
       ) : (
         <ResultView result={x.result} active={active} onCite={focusSource} />
@@ -265,122 +273,103 @@ function ExchangeView({ exchange: x }: { exchange: Exchange }) {
 }
 
 function ResultView({ result: r, active, onCite }: { result: ArchivistResult; active: number | null; onCite: (n: number) => void }) {
-  const records = new Set([...r.sources, ...r.consulted].map((s) => s.accession)).size;
+  const documents = new Set([...r.sources, ...r.consulted].map((s) => s.documentId)).size;
+  const meta = (
+    <p className="exchange__meta">
+      <span>{r.mode === "deep" ? "Deep research" : "Standard"}</span>
+      {r.sources.length + r.consulted.length ? (
+        <span>
+          {r.sources.length + r.consulted.length} passages from {documents} document{documents === 1 ? "" : "s"}
+        </span>
+      ) : null}
+      {r.scope.length ? <span>Within {r.scope.map((s) => s.title).join(", ")}</span> : null}
+      <span>{(r.elapsedMs / 1000).toFixed(1)}s</span>
+    </p>
+  );
 
   if (r.status === "no_results") {
     return (
-      <div className="answer">
-        <span className="label">Findings</span>
-        <div className="answer__body">
-          <p>I can find nothing in the archive on this. The collection is still small, and the question may lie outside it.</p>
-          <p className="meta mt-2">
-            Searched for: {r.searchedFor.join(", ") || "—"}. Try other terms, or <Link href="/archive">browse the records</Link>.
+      <>
+        {meta}
+        <div className="answer">
+          <p className="answer__body">Your library holds nothing on this.</p>
+          <p className="inference">
+            Searched for: {r.searchedFor.join(", ") || "—"}. Try other words, widen the scope, or{" "}
+            <Link href="/library/add" className="link">
+              add documents
+            </Link>{" "}
+            that address it.
           </p>
         </div>
-      </div>
+      </>
     );
   }
 
-  const cited = new Set(r.sources.map((s) => s.passageId));
-  const retrieved = [...r.sources, ...r.consulted];
-
   return (
     <>
-      {retrieved.length ? (
-        <div className="sources">
-          <span className="label">Sources retrieved</span>
-          <ol className="retrieved">
-            {retrieved.map((s, i) => (
-              <li key={s.passageId}>
-                <span className="n">{String(i + 1).padStart(2, "0")}</span>
-                <Link href={`/p/${s.passageId}`}>{ref(s.passageId)}</Link>
-                <span className="t">{s.title}</span>
-                <span className={`flag${cited.has(s.passageId) ? " red" : ""}`}>{cited.has(s.passageId) ? "Cited" : "Read"}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
+      {meta}
       {r.status === "retrieval_only" ? (
         <div className="answer">
-          <span className="label">Findings</span>
-          <div>
-            <p className="answer__body">
-              These are the passages the archive holds that bear most directly on your question, strongest first.
-            </p>
-            <p className="meta mt-2">
-              Retrieval-only mode — no written answer is generated on this installation. Searched for:{" "}
-              {r.searchedFor.join(", ")}.
-            </p>
-          </div>
+          <p className="answer__body">These are the passages in your library that bear most directly on your question, strongest first.</p>
+          <p className="inference">Searched for: {r.searchedFor.join(", ")}.</p>
         </div>
       ) : (
         <div className="answer">
-          <div>
-            <span className="label">{r.status === "insufficient" ? "Finding" : "Findings"}</span>
-            <p className="meta mt-1" style={{ fontSize: 12 }}>
-              {r.mode === "deep" ? "Deep research" : "Standard"}
+          {r.status === "insufficient" ? (
+            <p className="notice" style={{ marginBottom: 18 }}>
+              <strong>Your library does not directly answer this.</strong> The Archivist found no passage it could cite in support.
             </p>
-          </div>
-          <div>
-            {r.status === "insufficient" ? (
-              <p className="notice" style={{ marginBottom: 16 }}>
-                <strong>The archive does not directly answer this.</strong> The Archivist found no passage it could cite in support.
+          ) : null}
+          <div className="answer__body">
+            {r.paragraphs.map((para, i) => (
+              <p key={i}>
+                {para.map((span, j) => (
+                  <Fragment key={j}>
+                    <span className={span.cites.length ? "cited" : undefined}>{span.text}</span>
+                    {span.cites.map((n) => (
+                      <a
+                        key={n}
+                        href={`#source-${r.id}-${n}`}
+                        className="cite"
+                        data-active={active === n}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onCite(n);
+                        }}
+                        aria-label={`Source ${n}`}
+                      >
+                        {n}
+                      </a>
+                    ))}
+                  </Fragment>
+                ))}
               </p>
-            ) : null}
-            <div className="answer__body">
-              {r.paragraphs.map((para, i) => (
-                <p key={i}>
-                  {para.map((span, j) => (
-                    <Fragment key={j}>
-                      <span className={span.cites.length ? "cited" : undefined}>{span.text}</span>
-                      {span.cites.map((n) => (
-                        <a
-                          key={n}
-                          href={`#source-${r.id}-${n}`}
-                          className="cite"
-                          data-active={active === n}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onCite(n);
-                          }}
-                          aria-label={`Source ${n}`}
-                        >
-                          {n}
-                        </a>
-                      ))}
-                    </Fragment>
-                  ))}
-                </p>
-              ))}
-            </div>
-            <p className="inference-note">
-              <span className="cited" style={{ padding: "0 4px" }}>Underlined</span> text is supported by the cited
-              passages. Sentences beginning “Outside the archive” are the Archivist’s own context, not archive evidence.
-            </p>
-            {r.notes.length ? (
-              <div className="notice mt-2">
-                <strong>Integrity notes</strong>
-                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                  {r.notes.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            ))}
           </div>
+          <p className="inference">
+            Underlined statements are supported by the numbered passages. Sentences beginning “Outside your library” are the
+            Archivist’s own context, not evidence from your documents.
+          </p>
+          {r.notes.length ? (
+            <div className="notice mt-2">
+              <strong>Integrity notes</strong>
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                {r.notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       )}
 
       {r.sources.length ? (
         <div className="sources">
-          <div>
-            <span className="label">Source extracts</span>
-            <p className="meta mt-1" style={{ fontSize: 12 }}>
-              Cited sentences marked
-            </p>
+          <div className="sources__head">
+            <span className="eyebrow">Sources</span>
+            <span className="hint">Cited sentences underlined</span>
           </div>
-          <ol className="source-list">
+          <ol role="list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {r.sources.map((s) => (
               <SourceItem key={s.passageId} s={s} id={`source-${r.id}-${s.n}`} active={active === s.n} />
             ))}
@@ -391,19 +380,23 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
       {r.consulted.length ? (
         r.status === "retrieval_only" ? (
           <div className="sources">
-            <span className="label">Source extracts</span>
-            <ol className="source-list">
+            <div className="sources__head">
+              <span className="eyebrow">Passages</span>
+            </div>
+            <ol role="list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {r.consulted.map((s) => (
                 <SourceItem key={s.passageId} s={s} id={`source-${r.id}-${s.n}`} active={false} />
               ))}
             </ol>
           </div>
         ) : (
-          <details className="sources" style={{ display: "block" }}>
-            <summary className="label" style={{ cursor: "pointer" }}>
-              Also consulted · {r.consulted.length} passage{r.consulted.length === 1 ? "" : "s"} read but not cited
+          <details className="sources">
+            <summary className="sources__head" style={{ cursor: "pointer" }}>
+              <span className="eyebrow">
+                Also read · {r.consulted.length} passage{r.consulted.length === 1 ? "" : "s"} consulted but not cited
+              </span>
             </summary>
-            <ol className="source-list mt-2">
+            <ol role="list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {r.consulted.map((s) => (
                 <SourceItem key={s.passageId} s={s} id={`source-${r.id}-${s.n}`} active={false} />
               ))}
@@ -411,34 +404,29 @@ function ResultView({ result: r, active, onCite }: { result: ArchivistResult; ac
           </details>
         )
       ) : null}
-
-      <p className="meta" style={{ padding: "8px 0 0" }}>
-        {r.sources.length + r.consulted.length} passages from {records} file{records === 1 ? "" : "s"} ·{" "}
-        {(r.elapsedMs / 1000).toFixed(1)}s{r.scope ? ` · within ${r.scope.title}` : ""}
-      </p>
     </>
   );
 }
 
 function SourceItem({ s, id, active }: { s: AnswerSource; id: string; active: boolean }) {
   return (
-    <li className="source-item" id={id} data-source={s.n} data-active={active}>
-      <span className="source-item__n">[{s.n}]</span>
-      <div>
-        <div className="source-item__file">
-          <span className="file-no">{fileNo(s.accession)}</span>
-          <Link href={`/archive/${s.slug}`} className="source-item__title">
-            <em>{s.title}</em>
+    <li className="src" id={id} data-source={s.n} data-active={active}>
+      <span className="src__n">{String(s.n).padStart(2, "0")}</span>
+      <div style={{ minWidth: 0 }}>
+        <div className="src__head">
+          <Link href={`/d/${s.documentId}`} className="src__title">
+            {s.title}
           </Link>
-          <span className="meta">
-            {[s.author, s.year].filter(Boolean).join(", ")} · {s.sectionTitle.replace(/_/g, "")}
+          <span className="small muted">{[s.author, s.year].filter(Boolean).join(", ")}</span>
+          <span className="ref">
+            {s.sectionTitle} · {ref(s.passageId, s.page)}
           </span>
         </div>
-        <p className="source-item__quote">
+        <p className="src__quote">
           <Excerpt text={s.text} quoted={s.quoted} />
         </p>
-        <Link href={`/p/${s.passageId}`} className="label" style={{ textDecoration: "none", display: "inline-block", marginTop: 8 }}>
-          {ref(s.passageId)} — read in context →
+        <Link href={`/p/${s.passageId}`} className="src__link arrow">
+          Read in place
         </Link>
       </div>
     </li>
@@ -447,37 +435,35 @@ function SourceItem({ s, id, active }: { s: AnswerSource; id: string; active: bo
 
 /** Show the passage with the cited sentences marked, trimmed around them if long. */
 function Excerpt({ text, quoted }: { text: string; quoted: string[] }) {
-  const clean = (t: string) => t.replace(/_/g, "");
-  const body = clean(text);
   const ranges: [number, number][] = [];
-  for (const q of quoted.map(clean)) {
-    const at = body.indexOf(q);
+  for (const q of quoted) {
+    const at = text.indexOf(q);
     if (at >= 0) ranges.push([at, at + q.length]);
   }
   ranges.sort((a, b) => a[0] - b[0]);
 
   const LIMIT = 700;
   let start = 0;
-  let end = body.length;
-  if (body.length > LIMIT) {
+  let end = text.length;
+  if (text.length > LIMIT) {
     const anchor = ranges[0]?.[0] ?? 0;
     start = Math.max(0, anchor - 200);
-    end = Math.min(body.length, Math.max(start + LIMIT, (ranges[ranges.length - 1]?.[1] ?? 0) + 120));
+    end = Math.min(text.length, Math.max(start + LIMIT, (ranges[ranges.length - 1]?.[1] ?? 0) + 120));
   }
   const parts: React.ReactNode[] = [];
   let cursor = start;
   for (const [a, b] of ranges) {
     if (b <= cursor || a >= end) continue;
-    if (a > cursor) parts.push(body.slice(cursor, a));
-    parts.push(<mark key={a}>{body.slice(Math.max(a, cursor), Math.min(b, end))}</mark>);
+    if (a > cursor) parts.push(text.slice(cursor, a));
+    parts.push(<mark key={a}>{text.slice(Math.max(a, cursor), Math.min(b, end))}</mark>);
     cursor = Math.min(b, end);
   }
-  if (cursor < end) parts.push(body.slice(cursor, end));
+  if (cursor < end) parts.push(text.slice(cursor, end));
   return (
     <>
       {start > 0 ? "… " : ""}
       {parts}
-      {end < body.length ? " …" : ""}
+      {end < text.length ? " …" : ""}
     </>
   );
 }

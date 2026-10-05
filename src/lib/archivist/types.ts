@@ -11,14 +11,14 @@ export type AnswerSpan = {
 export type AnswerSource = {
   n: number;
   passageId: string;
-  accession: number;
-  slug: string;
+  documentId: number;
   title: string;
   author: string | null;
   year: number | null;
   sectionOrdinal: number;
   sectionTitle: string;
-  /** The full passage as stored in the archive. */
+  page: number | null;
+  /** The full passage as stored in the library. */
   text: string;
   /** Exact sentences the answer cites from this passage. Always substrings of `text`. */
   quoted: string[];
@@ -26,7 +26,7 @@ export type AnswerSource = {
 
 export type ArchivistStatus =
   | "answered" // generated answer with citations
-  | "insufficient" // the archive does not support an answer
+  | "insufficient" // the library does not support an answer
   | "retrieval_only" // no language model configured: passages only
   | "no_results";
 
@@ -41,9 +41,10 @@ export type ArchivistResult = {
   sources: AnswerSource[];
   /** Passages retrieved but not cited — shown as "also consulted". */
   consulted: AnswerSource[];
-  /** The terms the archive was searched for. */
+  /** The terms the library was searched for. */
   searchedFor: string[];
-  scope: { slug: string; title: string } | null;
+  /** Documents the question was confined to, if any. */
+  scope: { id: number; title: string }[];
   /** Integrity notes, e.g. a quotation that could not be verified. */
   notes: string[];
   model: string | null;
@@ -51,7 +52,7 @@ export type ArchivistResult = {
 };
 
 export type QuotaState = {
-  plan: "visitor" | "reader" | "inner";
+  plan: "member" | "fellow";
   limit: number | null;
   used: number;
   remaining: number | null;

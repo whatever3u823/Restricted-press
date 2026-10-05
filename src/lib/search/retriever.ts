@@ -1,38 +1,36 @@
 /**
  * Retrieval — the single seam between "a question" and "evidence".
  *
- * Everything that needs passages (archive search, the Archivist) goes through
- * a Retriever. Today there is one implementation, LexicalRetriever, backed by
- * Postgres full-text search over passages plus the controlled vocabulary.
+ * Everything that needs passages (library search, the Archivist) goes
+ * through a Retriever, always scoped to one reader's library. Today there is
+ * one implementation, LexicalRetriever, backed by Postgres full-text search.
  * A semantic (embedding) retriever can implement the same interface and be
  * combined with this one via reciprocal-rank fusion without touching callers.
  */
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import type { Concept } from "./vocabulary";
+import type { Concept } from "./query";
 
 export type RetrievalQuery = {
+  ownerId: string;
   concepts: Concept[];
   limit: number;
-  /** Cap on passages from one work, so answers stay cross-textual. */
-  perWorkCap?: number;
-  /** Restrict to these works. */
-  workIds?: number[];
-  /** Include works whose text is Inner Archive only. */
-  includeInner?: boolean;
+  /** Cap on passages from one document, so answers stay cross-textual. */
+  perDocumentCap?: number;
+  /** Restrict to these documents. */
+  documentIds?: number[];
   offset?: number;
 };
 
 export type PassageHit = {
   id: string;
-  workId: number;
-  accession: number;
-  slug: string;
+  documentId: number;
   title: string;
   author: string | null;
   year: number | null;
   sectionOrdinal: number;
   sectionTitle: string;
+  page: number | null;
   kind: string;
   text: string;
   /** Excerpt with <mark> tags around matched terms. */
@@ -55,6 +53,38 @@ function conceptQuery(c: Concept): SQL {
   return sql`(${sql.join(parts, sql` || `)})`;
 }
 
+type Row = {
+  id: string;
+  document_id: number;
+  title: string;
+  author: string | null;
+  year: number | null;
+  section_ordinal: number;
+  section_title: string;
+  page: number | null;
+  kind: string;
+  text: string;
+  snippet: string;
+  coverage: number;
+  score: number;
+};
+
+const toHit = (r: Row): PassageHit => ({
+  id: r.id,
+  documentId: r.document_id,
+  title: r.title,
+  author: r.author,
+  year: r.year,
+  sectionOrdinal: r.section_ordinal,
+  sectionTitle: r.section_title,
+  page: r.page,
+  kind: r.kind,
+  text: r.text,
+  snippet: r.snippet,
+  coverage: Number(r.coverage),
+  score: Number(r.score),
+});
+
 export class LexicalRetriever implements Retriever {
   readonly name = "lexical";
 
@@ -67,122 +97,57 @@ export class LexicalRetriever implements Retriever {
       perConcept.map((cq) => sql`(p.search @@ ${cq})::int`),
       sql` + `,
     );
-    const workFilter = q.workIds?.length ? sql`and p.work_id in ${q.workIds}` : sql``;
-    const innerFilter = q.includeInner ? sql`` : sql`and w.access_level = 'open'`;
-    const cap = q.perWorkCap ?? 1000;
+    const docFilter = q.documentIds?.length ? sql`and p.document_id in ${q.documentIds}` : sql``;
+    const cap = q.perDocumentCap ?? 100000;
 
-    const rows = await db.execute<{
-      id: string;
-      work_id: number;
-      accession: number;
-      slug: string;
-      title: string;
-      author: string | null;
-      year: number | null;
-      section_ordinal: number;
-      section_title: string;
-      kind: string;
-      text: string;
-      snippet: string;
-      coverage: number;
-      score: number;
-    }>(sql`
+    const rows = await db.execute<Row>(sql`
       with q as (select ${any} as tsq),
       matched as (
-        select p.id, p.work_id, p.section_id, p.kind, p.text, p.word_count, p.ordinal,
+        select p.id, p.document_id, p.section_id, p.kind, p.text, p.word_count, p.page,
           (${coverage}) as coverage,
           ts_rank_cd(p.search, q.tsq, 32) as rank
-        from passages p, q, works w
-        where w.id = p.work_id and w.publication_status = 'published'
-          ${innerFilter} ${workFilter}
-          and p.kind not in ('rule', 'illustration')
-          and p.word_count >= 12
+        from passages p, q
+        where p.owner_id = ${q.ownerId} ${docFilter}
+          and p.kind <> 'heading'
+          and p.word_count >= 8
           and p.search @@ q.tsq
       ),
       scored as (
         select m.*,
-          -- Concept coverage dominates; rank breaks ties; very short
-          -- passages and footnotes are discounted.
-          (m.coverage * 1.0 + m.rank * 4.0) * case when m.kind = 'note' then 0.6 when m.word_count < 30 then 0.7 else 1 end as score
+          -- Concept coverage dominates; rank breaks ties; very short passages are discounted.
+          (m.coverage * 1.0 + m.rank * 4.0) * case when m.word_count < 25 then 0.7 else 1 end as score
         from matched m
       ),
       ranked as (
-        select s.*, row_number() over (partition by s.work_id order by s.score desc) as work_rank
+        select s.*, row_number() over (partition by s.document_id order by s.score desc) as doc_rank
         from scored s
       )
-      select r.id, r.work_id, w.accession, w.slug, w.title,
-        (select a.name from work_authors wa join authors a on a.id = wa.author_id
-          where wa.work_id = w.id order by wa.position limit 1) as author,
-        w.original_year as year,
-        sec.ordinal as section_ordinal, sec.title as section_title,
+      select r.id, r.document_id, d.title, d.author, d.year,
+        sec.ordinal as section_ordinal, sec.title as section_title, r.page,
         r.kind, r.text, r.coverage, r.score,
         ts_headline('english', r.text, (select tsq from q),
           'StartSel=<mark>,StopSel=</mark>,MaxWords=42,MinWords=18,MaxFragments=2,FragmentDelimiter=" … "') as snippet
       from ranked r
-      join works w on w.id = r.work_id
+      join documents d on d.id = r.document_id and d.status = 'ready'
       join sections sec on sec.id = r.section_id
-      where r.work_rank <= ${cap}
+      where r.doc_rank <= ${cap}
       order by r.score desc, r.id
       limit ${q.limit} offset ${q.offset ?? 0}
     `);
-
-    return [...rows].map((r) => ({
-      id: r.id,
-      workId: r.work_id,
-      accession: r.accession,
-      slug: r.slug,
-      title: r.title,
-      author: r.author,
-      year: r.year,
-      sectionOrdinal: r.section_ordinal,
-      sectionTitle: r.section_title,
-      kind: r.kind,
-      text: r.text,
-      snippet: r.snippet,
-      coverage: Number(r.coverage),
-      score: Number(r.score),
-    }));
+    return [...rows].map(toHit);
   }
 }
 
 export const retriever: Retriever = new LexicalRetriever();
 
 /** Fetch specific passages in retrieval shape (for a passage the reader pinned). */
-export async function getPassageHits(ids: string[], includeInner: boolean): Promise<PassageHit[]> {
+export async function getPassageHits(ownerId: string, ids: string[]): Promise<PassageHit[]> {
   if (!ids.length) return [];
-  const rows = await db.execute<{
-    id: string;
-    work_id: number;
-    accession: number;
-    slug: string;
-    title: string;
-    author: string | null;
-    year: number | null;
-    section_ordinal: number;
-    section_title: string;
-    kind: string;
-    text: string;
-  }>(sql`
-    select p.id, p.work_id, w.accession, w.slug, w.title,
-      (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.position limit 1) author,
-      w.original_year as year, sec.ordinal section_ordinal, sec.title section_title, p.kind, p.text
-    from passages p join works w on w.id = p.work_id join sections sec on sec.id = p.section_id
-    where p.id in ${ids} and w.publication_status = 'published' ${includeInner ? sql`` : sql`and w.access_level = 'open'`}
+  const rows = await db.execute<Row>(sql`
+    select p.id, p.document_id, d.title, d.author, d.year, sec.ordinal section_ordinal, sec.title section_title,
+      p.page, p.kind, p.text, left(p.text, 280) snippet, 0 coverage, 0 score
+    from passages p join documents d on d.id = p.document_id join sections sec on sec.id = p.section_id
+    where p.id in ${ids} and p.owner_id = ${ownerId}
   `);
-  return [...rows].map((r) => ({
-    id: r.id,
-    workId: r.work_id,
-    accession: r.accession,
-    slug: r.slug,
-    title: r.title,
-    author: r.author,
-    year: r.year,
-    sectionOrdinal: r.section_ordinal,
-    sectionTitle: r.section_title,
-    kind: r.kind,
-    text: r.text,
-    snippet: r.text.slice(0, 280),
-    coverage: 0,
-    score: 0,
-  }));
+  return [...rows].map(toHit);
 }

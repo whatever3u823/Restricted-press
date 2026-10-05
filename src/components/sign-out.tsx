@@ -8,7 +8,7 @@ export function SignOut() {
   return (
     <button
       type="button"
-      className="btn btn--ghost btn--small"
+      className="btn"
       onClick={async () => {
         await authClient.signOut();
         router.push("/");

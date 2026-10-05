@@ -18,7 +18,7 @@ const globalForDb = globalThis as unknown as { sql?: ReturnType<typeof postgres>
 const serverless = Boolean(process.env.VERCEL);
 const client =
   globalForDb.sql ??
-  postgres(databaseUrl(), { max: serverless ? 3 : 10, prepare: !serverless });
+  postgres(databaseUrl(), { max: serverless ? 3 : 10, prepare: !serverless, onnotice: () => {} });
 if (process.env.NODE_ENV !== "production") globalForDb.sql = client;
 
 export const db = drizzle(client, { schema });

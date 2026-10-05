@@ -1,46 +1,37 @@
 /**
- * Who is looking, and what they may do. Every premium check in the app goes
+ * Who is looking, and what they may do. Every plan check in the app goes
  * through `can()`, so plans can be reshaped here without touching pages.
  */
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/db";
 import { entitlements } from "@/db/schema";
 import { auth } from "./auth";
 
-export type Plan = "visitor" | "reader" | "inner";
+/** member: a free account. fellow: the paid plan. */
+export type Plan = "member" | "fellow";
 
 export type Feature =
-  | "archivist.ask" // ask the Archivist at all (quota applies)
-  | "archivist.deep" // deep research: more sources, query expansion, comparison
+  | "archivist.deep" // deep research: wider search, more sources, comparison
   | "archivist.unlimited"
-  | "search.expanded" // conceptual search (expanded vocabulary)
-  | "library.save" // save records
-  | "passages.save" // save passages with notes
-  | "text.inner"; // read texts marked Inner Archive
+  | "library.unlimited";
 
 const FEATURES: Record<Plan, Feature[]> = {
-  visitor: ["archivist.ask"],
-  reader: ["archivist.ask"],
-  inner: [
-    "archivist.ask",
-    "archivist.deep",
-    "archivist.unlimited",
-    "search.expanded",
-    "library.save",
-    "passages.save",
-    "text.inner",
-  ],
+  member: [],
+  fellow: ["archivist.deep", "archivist.unlimited", "library.unlimited"],
 };
 
+export type Reader = { id: string; name: string; email: string };
+
 export type Viewer = {
-  user: { id: string; name: string; email: string } | null;
+  user: Reader | null;
   plan: Plan;
   can: (f: Feature) => boolean;
 };
 
-export async function hasActiveInner(userId: string) {
+export async function hasActiveFellowship(userId: string) {
   const now = new Date();
   const rows = await db
     .select({ id: entitlements.id })
@@ -48,7 +39,7 @@ export async function hasActiveInner(userId: string) {
     .where(
       and(
         eq(entitlements.userId, userId),
-        eq(entitlements.plan, "inner"),
+        eq(entitlements.plan, "fellow"),
         eq(entitlements.status, "active"),
         or(isNull(entitlements.endsAt), gt(entitlements.endsAt, now)),
       ),
@@ -60,7 +51,14 @@ export async function hasActiveInner(userId: string) {
 export const getViewer = cache(async (): Promise<Viewer> => {
   const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
   const user = session?.user ? { id: session.user.id, name: session.user.name, email: session.user.email } : null;
-  const plan: Plan = !user ? "visitor" : (await hasActiveInner(user.id)) ? "inner" : "reader";
-  const allowed = new Set(FEATURES[plan]);
+  const plan: Plan = user && (await hasActiveFellowship(user.id)) ? "fellow" : "member";
+  const allowed = new Set(user ? FEATURES[plan] : []);
   return { user, plan, can: (f) => allowed.has(f) };
 });
+
+/** For pages inside the library: the signed-in reader, or a redirect to sign in. */
+export async function requireReader(next: string): Promise<Viewer & { user: Reader }> {
+  const viewer = await getViewer();
+  if (!viewer.user) redirect(`/sign-in?next=${encodeURIComponent(next)}`);
+  return viewer as Viewer & { user: Reader };
+}

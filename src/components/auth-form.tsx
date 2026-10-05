@@ -9,7 +9,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next");
-  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/archive";
+  const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/library";
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -42,20 +42,20 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     <form onSubmit={onSubmit} className="stack" style={{ ["--stack" as string]: "18px" }} noValidate={false}>
       {mode === "sign-up" ? (
         <div className="field">
-          <label htmlFor="name" className="label label--ink">
+          <label htmlFor="name" className="label">
             Name
           </label>
           <input id="name" name="name" className="input" autoComplete="name" maxLength={80} />
         </div>
       ) : null}
       <div className="field">
-        <label htmlFor="email" className="label label--ink">
+        <label htmlFor="email" className="label">
           Email
         </label>
         <input id="email" name="email" type="email" required className="input" autoComplete="email" />
       </div>
       <div className="field">
-        <label htmlFor="password" className="label label--ink">
+        <label htmlFor="password" className="label">
           Password
         </label>
         <input
@@ -67,24 +67,24 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           className="input"
           autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
         />
-        {mode === "sign-up" ? <span className="meta">At least 10 characters.</span> : null}
+        {mode === "sign-up" ? <span className="hint">At least 10 characters.</span> : null}
       </div>
       {error ? (
         <p className="error-text" role="alert">
           {error}
         </p>
       ) : null}
-      <button className="btn" type="submit" disabled={pending} style={{ width: "100%" }}>
-        {pending ? "One moment…" : mode === "sign-up" ? "Create account" : "Sign in"}
+      <button className="btn btn--primary btn--lg btn--block mt-2" type="submit" disabled={pending}>
+        {pending ? "One moment…" : mode === "sign-up" ? "Open your library" : "Sign in"}
       </button>
-      <p className="meta" style={{ textAlign: "center" }}>
+      <p className="muted small" style={{ textAlign: "center" }}>
         {mode === "sign-up" ? (
           <>
-            Already registered? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link>
+            Already a member? <Link href={`/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link>
           </>
         ) : (
           <>
-            New to the archive? <Link href={`/sign-up${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Create a free account</Link>
+            New to Athenaeum? <Link href={`/sign-up${next ? `?next=${encodeURIComponent(next)}` : ""}`}>Open a library</Link>
           </>
         )}
       </p>

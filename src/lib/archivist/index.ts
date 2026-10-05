@@ -1,23 +1,24 @@
 /**
  * The Archivist: question → understanding → retrieval → answer → verification.
  *
- *   1. Understand   map the question onto archive concepts (controlled
- *                   vocabulary; in deep mode also an LLM search plan) and
- *                   detect records the question names.
- *   2. Retrieve     gather passages through the Retriever.
+ *   1. Understand   map the question onto search concepts (the reader's
+ *                   words, widened by a model-written search plan when a
+ *                   model is configured) and detect documents it names.
+ *   2. Retrieve     gather passages from the reader's library only.
  *   3. Answer       the provider answers from those passages only, citing
  *                   them sentence by sentence.
- *   4. Verify       every quotation shown is archive text; citations that do
+ *   4. Verify       every quotation shown is library text; citations that do
  *                   not resolve are dropped; unsupported quotations are flagged.
  *
  * With no language model configured the Archivist returns step 2 only
  * ("retrieval only"), which is still a useful, honest answer.
  */
-import { sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { documents, passages, sections } from "@/db/schema";
 import { ARCHIVIST } from "@/lib/config";
 import { getPassageHits, retriever, type PassageHit } from "@/lib/search/retriever";
-import { toConcepts, type Concept } from "@/lib/search/vocabulary";
+import { toConcepts, type Concept } from "@/lib/search/query";
 import { AnthropicProvider } from "./anthropic";
 import type { AnswerProvider, ProviderPassage, QueryPlan } from "./provider";
 import type { AnswerSource, AnswerSpan, ArchivistMode, ArchivistResult } from "./types";
@@ -31,71 +32,44 @@ export function archivistConfigured() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
-const fileNo = (n: number) => `FILE ${String(n).padStart(4, "0")}`;
-
 /* ───────────────────────────── Understanding ───────────────────────────── */
 
-type WorkKey = { id: number; slug: string; title: string; accession: number; keys: string[] };
+type DocKey = { id: number; title: string; author: string | null; keys: string[] };
 
-const TITLE_STOP = new Set(["the", "of", "and", "a", "an", "in", "on", "from", "to", "with", "its", "their", "dr", "or"]);
+const SURNAME_STOP = new Set(["jr", "sr", "ed", "eds", "trans", "et", "al", "and", "the", "von", "van", "de"]);
 
-async function workKeys(): Promise<WorkKey[]> {
-  const rows = await db.execute<{ id: number; slug: string; title: string; accession: number; surnames: string | null }>(sql`
-    select w.id, w.slug, w.title, w.accession,
-      string_agg(split_part(a.sort_name, ',', 1), '|') surnames
-    from works w
-    left join work_authors wa on wa.work_id = w.id and wa.role = 'author'
-    left join authors a on a.id = wa.author_id
-    where w.publication_status = 'published'
-    group by w.id
-  `);
-  return [...rows].map((r) => {
-    const titleWords = r.title
-      .toLowerCase()
-      .replace(/[^\p{L}\s'-]/gu, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 3 && !TITLE_STOP.has(w));
-    // A title is recognised by its full form or its most distinctive words.
-    const keys = [r.title.toLowerCase(), ...titleWords.filter((w) => DISTINCTIVE.has(w))];
-    for (const s of (r.surnames ?? "").split("|")) {
-      const surname = s.trim().toLowerCase();
-      if (surname && surname !== "three initiates" && !AMBIGUOUS_SURNAMES.has(surname)) keys.push(surname);
+async function libraryKeys(ownerId: string): Promise<DocKey[]> {
+  const rows = await db
+    .select({ id: documents.id, title: documents.title, author: documents.author })
+    .from(documents)
+    .where(and(eq(documents.ownerId, ownerId), eq(documents.status, "ready")));
+  return rows.map((r) => {
+    const title = r.title.toLowerCase();
+    const keys = [title];
+    // "Meditations: A New Translation" is recognised by "meditations".
+    const main = title.split(/[:—–(]/)[0].trim();
+    if (main.length >= 6 && main !== title) keys.push(main);
+    for (const name of (r.author ?? "").split(/;|\band\b|&/)) {
+      const parts = name.trim().toLowerCase().split(/[\s,]+/).filter((p) => p.length > 3 && !SURNAME_STOP.has(p));
+      // "Aurelius, Marcus" and "Marcus Aurelius" both yield "aurelius".
+      const surname = name.includes(",") ? parts[0] : parts[parts.length - 1];
+      if (surname) keys.push(surname);
     }
-    return { id: r.id, slug: r.slug, title: r.title, accession: r.accession, keys };
+    return { id: r.id, title: r.title, author: r.author, keys: [...new Set(keys)] };
   });
 }
 
-/** Title words specific enough to identify a record on their own. */
-const DISTINCTIVE = new Set([
-  "kybalion",
-  "necromancers",
-  "golden",
-  "bough",
-  "rosicrucian",
-  "freemasonry",
-  "demonology",
-  "elizabethan",
-  "magus",
-  "guernsey",
-  "channel",
-  "diary",
-  "treatise",
-]);
-const AMBIGUOUS_SURNAMES = new Set(["williams", "roberts", "scott"]);
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function detectMentions(question: string, keys: WorkKey[], extra: string[] = []) {
+function detectMentions(question: string, keys: DocKey[], planned: string[] = []) {
   const q = ` ${question.toLowerCase()} `;
-  const found = new Map<number, WorkKey>();
-  const file = [...question.matchAll(/file\s*0*(\d{1,4})/gi)].map((m) => Number(m[1]));
+  const found = new Map<number, DocKey>();
   for (const k of keys) {
-    if (file.includes(k.accession)) found.set(k.id, k);
     for (const key of k.keys) {
-      const re = new RegExp(`[^\\p{L}]${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}('s)?[^\\p{L}]`, "u");
-      if (re.test(q)) found.set(k.id, k);
+      if (new RegExp(`[^\\p{L}]${escape(key)}('s)?[^\\p{L}]`, "u").test(q)) found.set(k.id, k);
     }
-    for (const m of extra) {
-      const ml = m.toLowerCase();
-      if (k.title.toLowerCase().includes(ml) || k.keys.some((key) => ml.includes(key))) found.set(k.id, k);
+    for (const m of planned) {
+      if (k.title.toLowerCase() === m.toLowerCase().trim()) found.set(k.id, k);
     }
   }
   return [...found.values()];
@@ -106,21 +80,22 @@ function detectMentions(question: string, keys: WorkKey[], extra: string[] = [])
 /** Split a passage into citable sentences, conservatively. */
 export function splitSentences(text: string): string[] {
   const out: string[] = [];
-  for (const part of text.split(/(?<=[.!?]["”’)\]]?)\s+(?=["“‘(\[_]?[A-Z0-9])/)) {
-    if (part.split(/\s+/).length > 90) {
-      // Very long early-modern periods: break at semicolons too.
-      out.push(...part.split(/(?<=;)\s+/));
-    } else {
-      out.push(part);
-    }
+  for (const part of text.split(/(?<=[.!?]["”’)\]]?)\s+(?=["“‘(\[_]?[\p{Lu}0-9])/u)) {
+    if (part.split(/\s+/).length > 90) out.push(...part.split(/(?<=;)\s+/));
+    else out.push(part);
   }
   return out.map((s) => s.trim()).filter(Boolean);
 }
 
+export function locationLabel(h: { sectionTitle: string; page: number | null }) {
+  return `${h.sectionTitle}${h.page ? ` — p. ${h.page}` : ""}`;
+}
+
 function providerPassage(h: PassageHit): ProviderPassage {
-  const date = h.year ? `, ${h.year}` : "";
+  const by = h.author ? ` — ${h.author}` : "";
+  const date = h.year ? ` (${h.year})` : "";
   return {
-    title: `${fileNo(h.accession)} — ${h.title}${h.author ? ` — ${h.author}` : ""}${date} — ${h.sectionTitle}`,
+    title: `${h.title}${by}${date} — ${locationLabel(h)}`,
     source: `/p/${h.id}`,
     sentences: splitSentences(h.text),
   };
@@ -130,13 +105,13 @@ function toSource(h: PassageHit, n: number, quoted: string[] = []): AnswerSource
   return {
     n,
     passageId: h.id,
-    accession: h.accession,
-    slug: h.slug,
+    documentId: h.documentId,
     title: h.title,
     author: h.author,
     year: h.year,
     sectionOrdinal: h.sectionOrdinal,
     sectionTitle: h.sectionTitle,
+    page: h.page,
     text: h.text,
     quoted,
   };
@@ -154,9 +129,10 @@ const norm = (s: string) =>
 /* ───────────────────────────── Run ───────────────────────────── */
 
 export type RunOptions = {
+  ownerId: string;
   mode: ArchivistMode;
-  includeInner: boolean;
-  scopeSlug?: string | null;
+  /** Confine the question to these documents. */
+  documentIds?: number[];
   /** A passage the reader is asking about; always included first. */
   passageId?: string | null;
   /** Override the configured provider (tests, alternative models). */
@@ -169,41 +145,45 @@ export async function runArchivist(question: string, opts: RunOptions): Promise<
   const deep = opts.mode === "deep";
   const limit = deep ? ARCHIVIST.deepPassages : ARCHIVIST.standardPassages;
   const notes: string[] = [];
+  const { ownerId } = opts;
 
   // 1. Understand
-  const keys = await workKeys();
+  const keys = await libraryKeys(ownerId);
+  const scope = opts.documentIds?.length ? keys.filter((k) => opts.documentIds!.includes(k.id)) : [];
   let plan: QueryPlan | null = null;
-  if (deep && provider) plan = await provider.plan(question);
+  if (provider && keys.length) {
+    plan = await provider.plan(
+      question,
+      keys.map((k) => `${k.title}${k.author ? ` — ${k.author}` : ""}`),
+    );
+  }
+  const mentioned = scope.length ? scope : detectMentions(question, keys, plan?.mentions ?? []);
 
-  let scope: WorkKey | null = null;
-  if (opts.scopeSlug) scope = keys.find((k) => k.slug === opts.scopeSlug) ?? null;
-  const mentioned = scope ? [scope] : detectMentions(question, keys, plan?.mentions ?? []);
-
-  // Words that only name a record should not also be searched for.
+  // Words that only name a document should not also be searched for.
   let conceptText = question;
-  for (const m of mentioned) for (const key of m.keys) conceptText = conceptText.replace(new RegExp(key, "gi"), " ");
-  let concepts: Concept[] = toConcepts(conceptText, true);
+  for (const m of mentioned) for (const key of m.keys) conceptText = conceptText.replace(new RegExp(escape(key), "gi"), " ");
+  let concepts: Concept[] = toConcepts(conceptText);
   if (plan) {
     const planned: Concept[] = plan.concepts.map((c) => ({
       term: c.term,
-      terms: [...new Set([c.term, ...c.variants, ...(toConcepts(c.term, true)[0]?.terms ?? [])])].slice(0, 24),
+      terms: [...new Set([c.term, ...c.variants].map((t) => t.trim()).filter(Boolean))].slice(0, 16),
     }));
-    // The model's plan leads; vocabulary concepts it missed are kept.
+    // The plan leads; the reader's own words it missed are kept.
     const plannedTerms = new Set(planned.flatMap((c) => c.terms.map((t) => t.toLowerCase())));
     concepts = [...planned, ...concepts.filter((c) => !plannedTerms.has(c.term.toLowerCase()))].slice(0, 8);
   }
-  const pinned = opts.passageId ? await getPassageHits([opts.passageId], opts.includeInner) : [];
+  const pinned = opts.passageId ? await getPassageHits(ownerId, [opts.passageId]) : [];
   if (pinned.length) {
-    // Find where else the archive treats the pinned passage's subject:
+    // Find where else the library takes up the pinned passage's subject:
     // search on its most distinctive (longest) words, alongside the question's own.
-    const words = [...new Set(pinned[0].text.toLowerCase().match(/[a-z]{7,}/g) ?? [])]
+    const words = [...new Set(pinned[0].text.toLowerCase().match(/\p{L}{7,}/gu) ?? [])]
       .sort((a, b) => b.length - a.length)
       .slice(0, 5);
-    concepts = [...concepts, ...toConcepts(words.join(" "), false)].slice(0, 8);
+    concepts = [...concepts, ...toConcepts(words.join(" "))].slice(0, 8);
   }
   if (!concepts.length && mentioned.length) {
-    // "Tell me about The Kybalion": search the record's own title words.
-    concepts = toConcepts(mentioned.map((m) => m.title).join(" "), false);
+    // "Tell me about The Prince": search the document's own title words.
+    concepts = toConcepts(mentioned.map((m) => m.title).join(" "));
   }
 
   // 2. Retrieve
@@ -211,22 +191,15 @@ export async function runArchivist(question: string, opts: RunOptions): Promise<
   if (mentioned.length) {
     const each = Math.max(4, Math.floor(limit / mentioned.length));
     for (const m of mentioned) {
-      hits.push(
-        ...(await retriever.retrieve({ concepts, limit: each, workIds: [m.id], includeInner: opts.includeInner })),
-      );
+      hits.push(...(await retriever.retrieve({ ownerId, concepts, limit: each, documentIds: [m.id] })));
     }
-    const comparing = plan?.intent === "compare" || mentioned.length > 1 || Boolean(scope);
+    const comparing = plan?.intent === "compare" || mentioned.length > 1 || scope.length > 0;
     if (!comparing && hits.length < limit) {
-      const others = await retriever.retrieve({
-        concepts,
-        limit: limit - hits.length,
-        perWorkCap: ARCHIVIST.perWorkCap,
-        includeInner: opts.includeInner,
-      });
+      const others = await retriever.retrieve({ ownerId, concepts, limit: limit - hits.length, perDocumentCap: ARCHIVIST.perDocumentCap });
       hits.push(...others.filter((o) => !hits.some((h) => h.id === o.id)));
     }
   } else {
-    hits = await retriever.retrieve({ concepts, limit, perWorkCap: ARCHIVIST.perWorkCap, includeInner: opts.includeInner });
+    hits = await retriever.retrieve({ ownerId, concepts, limit, perDocumentCap: ARCHIVIST.perDocumentCap });
   }
   hits = [...pinned, ...hits.filter((h) => !pinned.some((p) => p.id === h.id))].slice(0, limit);
 
@@ -234,20 +207,12 @@ export async function runArchivist(question: string, opts: RunOptions): Promise<
     question,
     mode: opts.mode,
     searchedFor: concepts.map((c) => c.term),
-    scope: scope ? { slug: scope.slug, title: scope.title } : null,
+    scope: scope.map((s) => ({ id: s.id, title: s.title })),
     notes,
   };
 
   if (!hits.length) {
-    return {
-      ...base,
-      status: "no_results",
-      paragraphs: [],
-      sources: [],
-      consulted: [],
-      model: null,
-      elapsedMs: Date.now() - started,
-    };
+    return { ...base, status: "no_results", paragraphs: [], sources: [], consulted: [], model: null, elapsedMs: Date.now() - started };
   }
 
   if (!provider) {
@@ -263,8 +228,8 @@ export async function runArchivist(question: string, opts: RunOptions): Promise<
   }
 
   // 3. Answer
-  const passages = hits.map(providerPassage);
-  const answer = await provider.answer({ question, mode: opts.mode, passages });
+  const forModel = hits.map(providerPassage);
+  const answer = await provider.answer({ question, mode: opts.mode, passages: forModel });
 
   // 4. Verify and number sources in order of first citation.
   const numberOf = new Map<number, number>();
@@ -273,14 +238,14 @@ export async function runArchivist(question: string, opts: RunOptions): Promise<
     const cites: number[] = [];
     for (const c of span.citations) {
       const hit = hits[c.passage];
-      const sentences = passages[c.passage]?.sentences;
+      const sentences = forModel[c.passage]?.sentences;
       if (!hit || !sentences || c.start < 0 || c.end > sentences.length || c.start >= c.end) {
-        notes.push("A citation that did not resolve to an archive passage was removed.");
+        notes.push("A citation that did not resolve to a passage in your library was removed.");
         continue;
       }
       const quoted = sentences.slice(c.start, c.end).join(" ");
       if (!norm(hit.text).includes(norm(quoted))) {
-        notes.push(`A citation to ${fileNo(hit.accession)} could not be matched to the passage text and was removed.`);
+        notes.push(`A citation to “${hit.title}” could not be matched to the passage text and was removed.`);
         continue;
       }
       if (!numberOf.has(c.passage)) numberOf.set(c.passage, numberOf.size + 1);
@@ -336,4 +301,40 @@ function toParagraphs(spans: AnswerSpan[]): AnswerSpan[][] {
   return paragraphs
     .map((p) => p.filter((s) => s.text.trim() || s.cites.length))
     .filter((p) => p.some((s) => s.text.trim()));
+}
+
+/* ───────────────────────────── Cataloguing ───────────────────────────── */
+
+/**
+ * Write the Archivist's catalogue entry (abstract and subjects) for a newly
+ * arrived document. Runs after the upload response; failure is harmless.
+ */
+export async function catalogueDocument(id: number) {
+  const provider = getProvider();
+  if (!provider?.catalogue) return;
+  const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  if (!doc) return;
+  const rows = await db
+    .select({ text: passages.text, title: sections.title })
+    .from(passages)
+    .innerJoin(sections, eq(sections.id, passages.sectionId))
+    .where(and(eq(passages.documentId, id), sql`${passages.kind} <> 'code'`))
+    .orderBy(asc(passages.ordinal));
+  // The opening, plus samples from across the document, within ~12,000 words.
+  const opening: string[] = [];
+  let words = 0;
+  for (const r of rows) {
+    if (words > 7000) break;
+    opening.push(r.text);
+    words += r.text.split(/\s+/).length;
+  }
+  const rest = rows.slice(opening.length);
+  const step = Math.max(1, Math.floor(rest.length / 24));
+  const samples = rest.filter((_, i) => i % step === 0).slice(0, 24).map((r) => `[${r.title}] ${r.text.split(/\s+/).slice(0, 180).join(" ")}`);
+  const contents = [...new Set(rows.map((r) => r.title))].slice(0, 60).join(" · ");
+  const excerpt = `Contents: ${contents}\n\n${opening.join("\n\n")}\n\n…\n\n${samples.join("\n\n")}`;
+  const entry = await provider.catalogue({ title: doc.title, author: doc.author, excerpt });
+  if (entry) {
+    await db.update(documents).set({ abstract: entry.abstract, subjects: entry.subjects, updatedAt: new Date() }).where(eq(documents.id, id));
+  }
 }

@@ -1,121 +1,188 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { db } from "@/db";
-import { archiveRequests, entitlements, passages, savedPassages, savedWorks, works } from "@/db/schema";
+import { collectionDocuments, collections, documents, entitlements, highlights, passages } from "@/db/schema";
+import { PASSAGE_ID } from "@/lib/ingest";
 import { getViewer } from "@/lib/viewer";
 
-export type ActionResult =
-  | { ok: true; saved: boolean }
-  | { ok: false; reason: "signin" | "gate" | "invalid"; message: string };
+export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; message: string };
 
-const SIGN_IN: ActionResult = { ok: false, reason: "signin", message: "Sign in to keep a personal library." };
-const GATE: ActionResult = {
-  ok: false,
-  reason: "gate",
-  message: "Your personal library is part of the Inner Archive.",
-};
+const SIGN_IN = { ok: false as const, message: "Sign in to continue." };
 
-export async function toggleSavedWork(workId: number): Promise<ActionResult> {
+async function reader() {
   const viewer = await getViewer();
-  if (!viewer.user) return SIGN_IN;
-  if (!viewer.can("library.save")) return GATE;
-  const [work] = await db.select({ id: works.id }).from(works).where(eq(works.id, workId)).limit(1);
-  if (!work) return { ok: false, reason: "invalid", message: "Record not found." };
-  const where = and(eq(savedWorks.userId, viewer.user.id), eq(savedWorks.workId, workId));
-  const existing = await db.select().from(savedWorks).where(where).limit(1);
-  if (existing.length) {
-    await db.delete(savedWorks).where(where);
-  } else {
-    await db.insert(savedWorks).values({ userId: viewer.user.id, workId });
-  }
-  revalidatePath("/library");
-  return { ok: true, saved: !existing.length };
+  return viewer.user ? { viewer, userId: viewer.user.id } : null;
 }
 
-export async function toggleSavedPassage(passageId: string, note?: string): Promise<ActionResult> {
-  const viewer = await getViewer();
-  if (!viewer.user) return { ...SIGN_IN, message: "Sign in to save passages." } as ActionResult;
-  if (!viewer.can("passages.save")) return { ...GATE, message: "Saved passages are part of the Inner Archive." } as ActionResult;
-  if (!/^\d{4}\.\d{3}\.\d{4}$/.test(passageId)) return { ok: false, reason: "invalid", message: "Unknown passage." };
-  const [p] = await db.select({ id: passages.id }).from(passages).where(eq(passages.id, passageId)).limit(1);
-  if (!p) return { ok: false, reason: "invalid", message: "Unknown passage." };
-  const where = and(eq(savedPassages.userId, viewer.user.id), eq(savedPassages.passageId, passageId));
-  const existing = await db.select().from(savedPassages).where(where).limit(1);
+async function ownsDocument(userId: string, id: number) {
+  const [d] = await db.select({ id: documents.id }).from(documents).where(and(eq(documents.id, id), eq(documents.ownerId, userId))).limit(1);
+  return Boolean(d);
+}
+
+/* ─────────────────────────────── Documents ─────────────────────────────── */
+
+const docPatch = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  author: z.string().trim().max(300).nullable().optional(),
+  year: z.number().int().min(-3000).max(2100).nullable().optional(),
+  kind: z.enum(["book", "article", "paper", "notes", "other"]).optional(),
+  readingStatus: z.enum(["unread", "reading", "finished"]).optional(),
+  notes: z.string().max(20000).nullable().optional(),
+});
+
+export async function updateDocument(id: number, patch: z.input<typeof docPatch>): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  const parsed = docPatch.safeParse(patch);
+  if (!parsed.success) return { ok: false, message: "Those details could not be saved." };
+  if (!(await ownsDocument(r.userId, id))) return { ok: false, message: "Document not found." };
+  const p = parsed.data;
+  await db
+    .update(documents)
+    .set({
+      ...p,
+      author: p.author === undefined ? undefined : p.author || null,
+      notes: p.notes === undefined ? undefined : p.notes || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(documents.id, id));
+  revalidatePath(`/d/${id}`);
+  revalidatePath("/library");
+  return { ok: true };
+}
+
+export async function deleteDocument(id: number): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  await db.delete(documents).where(and(eq(documents.id, id), eq(documents.ownerId, r.userId)));
+  revalidatePath("/library");
+  return { ok: true };
+}
+
+/* ─────────────────────────────── Collections ─────────────────────────────── */
+
+export async function createCollection(name: string, documentId?: number): Promise<ActionResult<{ id: number }>> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, 80);
+  if (!clean) return { ok: false, message: "Give the collection a name." };
+  const [existing] = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(and(eq(collections.ownerId, r.userId), eq(collections.name, clean)))
+    .limit(1);
+  const id = existing?.id ?? (await db.insert(collections).values({ ownerId: r.userId, name: clean }).returning({ id: collections.id }))[0].id;
+  if (documentId && (await ownsDocument(r.userId, documentId))) {
+    await db.insert(collectionDocuments).values({ collectionId: id, documentId }).onConflictDoNothing();
+  }
+  revalidatePath("/library");
+  if (documentId) revalidatePath(`/d/${documentId}`);
+  return { ok: true, id };
+}
+
+export async function renameCollection(id: number, name: string): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, 80);
+  if (!clean) return { ok: false, message: "Give the collection a name." };
+  try {
+    await db.update(collections).set({ name: clean }).where(and(eq(collections.id, id), eq(collections.ownerId, r.userId)));
+  } catch {
+    return { ok: false, message: "You already have a collection with that name." };
+  }
+  revalidatePath("/library");
+  return { ok: true };
+}
+
+export async function deleteCollection(id: number): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  await db.delete(collections).where(and(eq(collections.id, id), eq(collections.ownerId, r.userId)));
+  revalidatePath("/library");
+  return { ok: true };
+}
+
+/** Put a document in a collection, or take it out. */
+export async function toggleInCollection(collectionId: number, documentId: number): Promise<ActionResult<{ member: boolean }>> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  const [col] = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(and(eq(collections.id, collectionId), eq(collections.ownerId, r.userId)))
+    .limit(1);
+  if (!col || !(await ownsDocument(r.userId, documentId))) return { ok: false, message: "Not found." };
+  const where = and(eq(collectionDocuments.collectionId, collectionId), eq(collectionDocuments.documentId, documentId));
+  const existing = await db.select().from(collectionDocuments).where(where).limit(1);
+  if (existing.length) await db.delete(collectionDocuments).where(where);
+  else await db.insert(collectionDocuments).values({ collectionId, documentId });
+  revalidatePath("/library");
+  revalidatePath(`/d/${documentId}`);
+  return { ok: true, member: !existing.length };
+}
+
+/* ─────────────────────────────── Highlights ─────────────────────────────── */
+
+/** Mark a passage (with an optional note), update its note, or — with no note given — unmark it. */
+export async function toggleHighlight(passageId: string, note?: string): Promise<ActionResult<{ marked: boolean }>> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  if (!PASSAGE_ID.test(passageId)) return { ok: false, message: "Unknown passage." };
+  const [p] = await db
+    .select({ id: passages.id })
+    .from(passages)
+    .where(and(eq(passages.id, passageId), eq(passages.ownerId, r.userId)))
+    .limit(1);
+  if (!p) return { ok: false, message: "Unknown passage." };
+  const where = and(eq(highlights.userId, r.userId), eq(highlights.passageId, passageId));
+  const existing = await db.select().from(highlights).where(where).limit(1);
   if (existing.length && note === undefined) {
-    await db.delete(savedPassages).where(where);
-    revalidatePath("/library");
-    return { ok: true, saved: false };
+    await db.delete(highlights).where(where);
+    revalidatePath("/highlights");
+    return { ok: true, marked: false };
   }
-  if (existing.length) {
-    await db.update(savedPassages).set({ note: note?.slice(0, 4000) || null }).where(where);
-  } else {
-    await db.insert(savedPassages).values({ userId: viewer.user.id, passageId, note: note?.slice(0, 4000) || null });
-  }
-  revalidatePath("/library");
-  return { ok: true, saved: true };
+  const clean = note?.trim().slice(0, 4000) || null;
+  if (existing.length) await db.update(highlights).set({ note: clean }).where(where);
+  else await db.insert(highlights).values({ userId: r.userId, passageId, note: clean });
+  revalidatePath("/highlights");
+  return { ok: true, marked: true };
 }
+
+export async function deleteHighlights(ids: number[]): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  if (ids.length) await db.delete(highlights).where(and(eq(highlights.userId, r.userId), inArray(highlights.id, ids)));
+  revalidatePath("/highlights");
+  return { ok: true };
+}
+
+/* ─────────────────────────────── Membership ─────────────────────────────── */
 
 /**
- * Development-only membership grant, standing in for checkout until payments
+ * Preview-only Fellowship grant, standing in for checkout until payments
  * are connected. Disabled unless ALLOW_DEV_UPGRADE=true.
  */
-export async function grantDevMembership(): Promise<ActionResult> {
-  if (process.env.ALLOW_DEV_UPGRADE !== "true") {
-    return { ok: false, reason: "invalid", message: "Membership checkout is not yet available." };
-  }
-  const viewer = await getViewer();
-  if (!viewer.user) return SIGN_IN;
-  if (viewer.plan !== "inner") {
-    await db.insert(entitlements).values({ userId: viewer.user.id, plan: "inner", status: "active", source: "dev" });
+export async function grantPreviewFellowship(): Promise<ActionResult> {
+  if (process.env.ALLOW_DEV_UPGRADE !== "true") return { ok: false, message: "Fellowship checkout is not yet available." };
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  if (r.viewer.plan !== "fellow") {
+    await db.insert(entitlements).values({ userId: r.userId, plan: "fellow", status: "active", source: "dev" });
   }
   revalidatePath("/", "layout");
-  return { ok: true, saved: true };
+  return { ok: true };
 }
 
-export async function cancelDevMembership(): Promise<ActionResult> {
-  const viewer = await getViewer();
-  if (!viewer.user) return SIGN_IN;
+export async function endPreviewFellowship(): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
   await db
     .update(entitlements)
     .set({ status: "cancelled", endsAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(entitlements.userId, viewer.user.id), eq(entitlements.source, "dev"), eq(entitlements.status, "active")));
+    .where(and(eq(entitlements.userId, r.userId), eq(entitlements.source, "dev"), eq(entitlements.status, "active")));
   revalidatePath("/", "layout");
-  return { ok: true, saved: false };
-}
-
-export type RequestResult = { ok: true; reference: string } | { ok: false; message: string };
-
-/** File a request for a title to accession. */
-export async function fileRequest(input: {
-  kind: "title";
-  title: string;
-  author?: string;
-  notes?: string;
-  email?: string;
-  workId?: number;
-}): Promise<RequestResult> {
-  const viewer = await getViewer();
-  const title = input.title?.trim().slice(0, 300);
-  if (!title || title.length < 2) return { ok: false, message: "Please give the title you are requesting." };
-  const email = (input.email ?? viewer.user?.email ?? "").trim().slice(0, 200);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, message: "That email address does not look right." };
-  if (input.workId !== undefined) {
-    const [w] = await db.select({ id: works.id }).from(works).where(eq(works.id, input.workId)).limit(1);
-    if (!w) return { ok: false, message: "Unknown file." };
-  }
-  const [row] = await db
-    .insert(archiveRequests)
-    .values({
-      kind: input.kind,
-      userId: viewer.user?.id ?? null,
-      email: email || null,
-      title,
-      author: input.author?.trim().slice(0, 200) || null,
-      notes: input.notes?.trim().slice(0, 2000) || null,
-      workId: input.workId ?? null,
-    })
-    .returning({ id: archiveRequests.id });
-  return { ok: true, reference: `${input.kind === "title" ? "REQ" : "ED"}-${String(row.id).padStart(5, "0")}` };
+  return { ok: true };
 }

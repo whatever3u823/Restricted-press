@@ -1,20 +1,19 @@
-import { randomUUID } from "node:crypto";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { researchQueries } from "@/db/schema";
 import { runArchivist } from "@/lib/archivist";
-import { clientHash, getQuota, VISITOR_COOKIE } from "@/lib/archivist/quota";
+import { getQuota } from "@/lib/archivist/quota";
+import { PASSAGE_ID } from "@/lib/ingest";
 import { getViewer } from "@/lib/viewer";
 
 export const maxDuration = 120;
 
 const body = z.object({
-  question: z.string().trim().min(3).max(600),
+  question: z.string().trim().min(3).max(1000),
   mode: z.enum(["standard", "deep"]).default("standard"),
-  scope: z.string().regex(/^[a-z0-9-]+$/).nullish(),
-  passage: z.string().regex(/^\d{4}\.\d{3}\.\d{4}$/).nullish(),
+  documents: z.array(z.number().int().positive()).max(12).nullish(),
+  passage: z.string().regex(PASSAGE_ID).nullish(),
 });
 
 export async function POST(req: Request) {
@@ -22,48 +21,33 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Please ask a question of at least a few words." }, { status: 400 });
   }
-  const { question, mode, scope, passage } = parsed.data;
+  const { question, mode, documents, passage } = parsed.data;
 
   const viewer = await getViewer();
-  const jar = await cookies();
-  let visitorId = jar.get(VISITOR_COOKIE)?.value ?? null;
-  if (!viewer.user && !visitorId) {
-    visitorId = randomUUID();
-    jar.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 365, path: "/" });
-  }
+  if (!viewer.user) return NextResponse.json({ error: "Sign in to consult the Archivist." }, { status: 401 });
 
   if (mode === "deep" && !viewer.can("archivist.deep")) {
-    return NextResponse.json(
-      { error: "Deep research is part of the Inner Archive.", gate: "archivist.deep" },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: "Deep research is part of the Fellowship.", gate: "archivist.deep" }, { status: 403 });
   }
 
-  const client = viewer.user ? null : clientHash(req.headers);
-  const quota = await getQuota(viewer, visitorId, client);
+  const quota = await getQuota(viewer.user.id, viewer.plan);
   if (quota.remaining === 0) {
     return NextResponse.json(
-      {
-        error: viewer.user
-          ? "You have used today's Archivist questions. The Inner Archive removes the limit."
-          : "You have used the Archivist's questions for visitors today. Create a free account for more, or join the Inner Archive for unlimited research.",
-        gate: "archivist.unlimited",
-        quota,
-      },
+      { error: "You have used today's questions. The Fellowship removes the limit.", gate: "archivist.unlimited", quota },
       { status: 429 },
     );
   }
 
   try {
     const result = await runArchivist(question, {
+      ownerId: viewer.user.id,
       mode,
-      includeInner: viewer.can("text.inner"),
-      scopeSlug: scope ?? null,
+      documentIds: documents ?? undefined,
       passageId: passage ?? null,
     });
     const [row] = await db
       .insert(researchQueries)
-      .values({ userId: viewer.user?.id ?? null, visitorId: viewer.user ? null : visitorId, clientHash: client, question, mode, response: result })
+      .values({ userId: viewer.user.id, question, mode, response: result })
       .returning({ id: researchQueries.id });
     const used = quota.limit === null ? 0 : quota.used + 1;
     return NextResponse.json({
@@ -73,7 +57,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[archivist]", err);
     return NextResponse.json(
-      { error: "The Archivist could not complete this request. Nothing was charged against your questions — please try again." },
+      { error: "The Archivist could not complete this request. Nothing was counted against your questions — please try again." },
       { status: 502 },
     );
   }

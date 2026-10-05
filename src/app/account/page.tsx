@@ -1,45 +1,82 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { SignOut } from "@/components/sign-out";
-import { getQuota, VISITOR_COOKIE } from "@/lib/archivist/quota";
-import { getViewer } from "@/lib/viewer";
+import { getQuota } from "@/lib/archivist/quota";
+import { LIBRARY_LIMITS } from "@/lib/config";
+import { libraryStats } from "@/lib/library";
+import { requireReader } from "@/lib/viewer";
 
 export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountPage() {
-  const viewer = await getViewer();
-  if (!viewer.user) redirect("/sign-in?next=/account");
-  const quota = await getQuota(viewer, (await cookies()).get(VISITOR_COOKIE)?.value ?? null);
+  const viewer = await requireReader("/account");
+  const [quota, stats] = await Promise.all([getQuota(viewer.user.id, viewer.plan), libraryStats(viewer.user.id)]);
+  const fellow = viewer.plan === "fellow";
+
   return (
-    <div className="wrap narrow">
+    <div className="page" style={{ maxWidth: 880 }}>
       <header className="page-head">
-        <span className="file-no">Reader record · Access level {viewer.plan === "inner" ? "02" : "01"}</span>
-        <h1 className="title-xl mt-2">{viewer.user.name}</h1>
-        <p className="meta mt-1">{viewer.user.email}</p>
-      </header>
-      <dl className="biblio">
-        <dt>Access</dt>
-        <dd>
-          {viewer.plan === "inner" ? (
-            <span className="stamp stamp--solid">Inner Archive</span>
-          ) : (
-            <>
-              Reader · <Link href="/membership">join the Inner Archive</Link>
-            </>
-          )}
-        </dd>
-        <dt>Archivist</dt>
-        <dd>{quota.limit === null ? "Unlimited questions" : `${quota.remaining} of ${quota.limit} questions left today`}</dd>
-        <dt>Library</dt>
-        <dd>
-          <Link href="/library">Saved files and passages →</Link>
-        </dd>
-      </dl>
-      <div className="mt-4">
+        <div className="page-head__text">
+          <span className="eyebrow eyebrow--rule">Account</span>
+          <h1 className="h1">{viewer.user.name}</h1>
+          <p className="page-head__sub">{viewer.user.email}</p>
+        </div>
         <SignOut />
-      </div>
+      </header>
+
+      <dl className="readout" style={{ ["--cols" as string]: 4 }}>
+        <div>
+          <dt>Membership</dt>
+          <dd className={fellow ? "brass" : undefined}>{fellow ? "Fellow" : "Member"}</dd>
+        </div>
+        <div>
+          <dt>Documents</dt>
+          <dd>
+            {stats.documents}
+            {fellow ? null : <span className="dim"> / {LIBRARY_LIMITS.member}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Questions today</dt>
+          <dd>{quota.limit === null ? "Unlimited" : `${quota.remaining} left`}</dd>
+        </div>
+        <div>
+          <dt>Asked in all</dt>
+          <dd>{stats.questions}</dd>
+        </div>
+      </dl>
+
+      <section className="mt-5">
+        <div className="block__head">
+          <h2>Your reading</h2>
+        </div>
+        <dl className="kv" style={{ gridTemplateColumns: "200px minmax(0,1fr)" }}>
+          <dt>Words held</dt>
+          <dd className="num">{stats.words.toLocaleString("en-US")}</dd>
+          <dt>Reading now</dt>
+          <dd>{stats.reading}</dd>
+          <dt>Finished</dt>
+          <dd>{stats.finished}</dd>
+          <dt>Highlights</dt>
+          <dd>
+            {stats.highlights} · <Link href="/highlights" className="link">view</Link>
+          </dd>
+        </dl>
+      </section>
+
+      <section className="mt-5">
+        <div className="block__head">
+          <h2>Membership</h2>
+        </div>
+        <p className="muted">
+          {fellow
+            ? "Your Fellowship is active: an unlimited library, unlimited questions and deep research."
+            : "The Fellowship removes the document and question limits and adds deep research across authors."}{" "}
+          <Link href="/membership" className="link">
+            {fellow ? "Manage" : "See the Fellowship"}
+          </Link>
+        </p>
+      </section>
     </div>
   );
 }

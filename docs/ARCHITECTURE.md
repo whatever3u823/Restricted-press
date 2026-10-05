@@ -1,116 +1,81 @@
-# Architecture
+# Athenaeum — architecture
 
-The smallest system that proves the product: one Next.js application, one
-Postgres database, an optional language-model provider. No queues, no vector
-store, no separate services.
+## Shape
 
-```
-Browser ──► Next.js (server components, route handlers, server actions)
-              │
-              ├── src/lib/archive.ts        catalogue queries (works, dossiers, reader)
-              ├── src/lib/search/           controlled vocabulary + Retriever interface
-              ├── src/lib/archivist/        understand → retrieve → answer → verify
-              ├── src/lib/viewer.ts         session → plan → features (all gating)
-              └── src/db/                   Drizzle schema + client
-                        │
-                     Postgres  (tsvector GIN index on passages, unaccent, pg_trgm)
+One Next.js application (App Router) on Postgres. Server components read the
+database directly through `src/lib/library.ts`; mutations are server actions
+(`src/app/actions.ts`) or route handlers under `src/app/api/`. Every query is
+scoped to the signed-in reader (`owner_id`), so no document, passage,
+highlight or question is visible across accounts.
 
-content/works/*.yaml ─┐
-content/texts/*.txt ──┴─► scripts/ingest.ts ─► Postgres
-```
+## Data model (`src/db/schema.ts`)
 
-## Data model
+- `documents` — one per upload, owned by a reader: title, author, year, kind,
+  format, reading status and place, the Archivist's abstract and subjects,
+  key terms, the reader's notes, counts.
+- `sections` → `passages` — the extracted text. Passages are the unit of
+  search, citation and highlighting. IDs are stable and readable:
+  `{document}.{section}.{paragraph}`, e.g. `42.003.0012`. Each carries its
+  owner (denormalised for scoped search), its kind, and the PDF page where
+  known. A generated `tsvector` column backs full-text search.
+- `collections`, `collection_documents`, `highlights` — organisation.
+- `entitlements` — plans (`fellow`), with a `source` so payments can plug in.
+- `research_queries` — every Archivist exchange: history and daily quotas.
+- Better Auth tables for accounts and sessions.
 
-| Entity | Purpose |
-|---|---|
-| `works` | The archive record. Accession number (FILE 0017), catalogue fields, curatorial prose with a review status, publication status (`draft`, `rights_review`, `published`, `withheld`) and access level (`open`, `inner`). |
-| `authors`, `work_authors` | People, with roles (author, editor, translator, introducer). |
-| `subjects`, `work_subjects` | One table for shelves (category) and subject headings. |
-| `editions`, `sources` | The printed edition transcribed, and where the digital text came from (provider, id, retrieval date, checksum, transcribers' notes). |
-| `rights_records` | Rights **per component** — status, confidence, jurisdiction, basis, notes, reviewer. |
-| `sections`, `passages` | Full text. Passages are paragraphs with stable IDs `{accession}.{section}.{paragraph}` and a generated `tsvector`. The unit of search, citation and saving. |
-| `work_relations` | Curated links with a note on why; computed links come from shared subjects. |
-| `plates`, `physical_editions` | Illustrations; Restricted Editions (price per edition). |
-| `user`, `session`, `account`, `verification` | Better Auth. |
-| `entitlements` | Plan grants with a `source` (`dev` now; `stripe`, `seal` later). |
-| `saved_works`, `saved_passages` | The personal library. |
-| `research_queries` | Every Archivist exchange, and the basis for quotas. |
+## Upload pipeline
 
-Deliberately not built yet: named collections, reading paths, embeddings,
-order fulfilment.
-
-## Page map
-
-| Route | |
-|---|---|
-| `/` | Landing — register of the archive, featured records, live Archivist retrieval sample, membership, editions |
-| `/archive` | Catalogue search and filters (shelf, period, availability, subject, author); **Passages** tab searches inside texts |
-| `/archive/[slug]` | Dossier — cover sheet, about, context, contents, bibliographic record, source & provenance, rights table, archivist's notes, related records |
-| `/archive/[slug]/read/[section]` | Reader — contents rail, in-text search, stable passage anchors, save/ask per passage |
-| `/p/[id]` | Permanent passage link → reader, scrolled and highlighted |
-| `/archivist` | The Archivist (scoped to a record with `?scope=`, to a passage with `?passage=`) |
-| `/authors`, `/authors/[slug]`, `/subjects/[slug]` | Discovery trails |
-| `/membership`, `/editions`, `/library`, `/account`, `/sign-in`, `/sign-up`, `/about` | |
+1. **Parse in the browser** (`src/lib/parse/`). PDF via unpdf (pdf.js): lines
+   are rebuilt from text positions; running headers, footers and page numbers
+   are removed; headings come from the PDF outline or from type size; lines
+   join into paragraphs by spacing, indentation and punctuation, mending
+   hyphenation. EPUB via fflate (spine order, table-of-contents titles). Word
+   via mammoth. Text and Markdown by their own rules. Everything becomes a
+   `ParsedDocument` of sections of blocks (`model.ts`), split into readable
+   sections when a document has no usable headings.
+2. **Send in batches** (`POST /api/documents`, `…/sections`, `…/finalize`) so a
+   large book stays under request size limits. The server re-validates every
+   batch (zod), splits very long paragraphs at sentence boundaries, numbers
+   passages, and enforces plan limits.
+3. **Finalise**: counts and key terms (`src/lib/terms.ts`); then, after the
+   response, the Archivist writes a catalogue entry (abstract + subjects).
 
 ## Retrieval and the Archivist
 
-```
-question
-  └─ understand   controlled vocabulary expands concepts and historical
-                  spellings; detects records the question names; in deep mode
-                  Claude produces a structured search plan
-  └─ retrieve     Retriever.retrieve() — Postgres FTS, ranked by concept
-                  coverage then cover-density rank, capped per work so answers
-                  stay cross-textual; a pinned passage always comes first
-  └─ answer       passages sent to Claude as search_result blocks, one text
-                  block per sentence, citations enabled
-  └─ verify       each citation resolves to exact archive sentences (else
-                  dropped + noted); quotations in prose are checked against
-                  the passages (else flagged); no citations → "insufficient"
-```
+`src/lib/search/retriever.ts` is the single seam between a question and
+evidence: Postgres full-text search over the reader's passages, ranked by how
+many of the question's concepts a passage touches, with a per-document cap so
+answers stay cross-textual. A semantic retriever can implement the same
+interface later.
 
-- **Grounding guarantee.** Quoted text shown to readers is always taken from
-  the database, never from model output. `npm run check:archivist` tests this.
-- **Provider-agnostic.** The pipeline depends on `AnswerProvider`
-  (`src/lib/archivist/provider.ts`); Claude is one implementation.
-- **Semantic search, later.** `Retriever` is the seam. A vector retriever
-  (pgvector, on the same `passages` rows) can be added and fused with the
-  lexical one by reciprocal-rank fusion without changing callers. The
-  controlled vocabulary stays useful: embeddings handle early-modern spelling
-  poorly.
-- **Degrades honestly.** No API key → retrieval-only answers.
+`src/lib/archivist/` runs question → understanding → retrieval → answer →
+verification:
 
-## Premium gating
+1. A model-written search plan widens the reader's words with synonyms and
+   names the documents the question refers to (matched against the reader's
+   own catalogue).
+2. Passages are retrieved — per named document when the question names some.
+3. Claude answers from the passages, sent as `search_result` blocks with
+   citations enabled, one block per sentence.
+4. Every citation is resolved back to an exact sentence of a stored passage;
+   unresolvable citations are dropped and quotations not found in the
+   passages are flagged. An answer with no citations is reported as
+   insufficient. Without an API key, the Archivist returns the ranked
+   passages ("sources only").
 
-`getViewer()` resolves the session to a plan (`visitor`, `reader`, `inner`)
-and exposes `can(feature)`. Features: `archivist.deep`, `archivist.unlimited`,
-`search.expanded`, `library.save`, `passages.save`, `text.inner`. Quotas are in
-`config.ts`; visitor quotas use a cookie plus a salted hash of the client
-address.
+`npm run check:archivist` verifies these guarantees and the privacy boundary
+with a scripted provider.
 
-## Ingestion
+## Connections
 
-Two stages with a reviewable artefact between them:
+Each document's key terms (frequent, non-generic words) are stored on
+arrival. Connections weigh them by TF-IDF across the reader's library and
+compare documents (and authors, by summing their documents) by cosine
+similarity, reporting the shared terms. The Archivist can then trace any
+connection through the text.
 
-1. **fetch** — download, decode, strip the provider wrapper and notices, lift
-   producer credits and transcriber's notes into provenance, restore ligature
-   codes. Output is committed to `content/texts/` so every cleanup is a diff.
-2. **load** — split into sections (per-record regex hints) and passages,
-   validate, upsert by stable ID, record provenance and rights.
+## Plans
 
-This is where OCR, automated metadata extraction and quality scoring slot in
-later: they produce the same clean text and YAML record.
-
-## Known risks
-
-- **Rights.** US-only assessments; several records carry medium confidence
-  (undated or reprint sources). The provider's trademark terms have been
-  handled by removal, but crediting the provider in provenance should be
-  confirmed by counsel.
-- **Curatorial prose** is draft and marked as such until reviewed.
-- **Lexical retrieval** misses paraphrase; the vocabulary mitigates but does
-  not solve this. Embeddings are the next step once the corpus grows.
-- **Model cost.** Default `claude-opus-5`; standard answers run at `medium`
-  effort and deep research at `high`. Quotas cap free usage.
-- **Structure detection** is regex-per-record; fine for 100 texts, not for
-  thousands without heuristics or model assistance.
+`src/lib/viewer.ts` defines what each plan can do; `src/lib/config.ts` holds
+limits and prices. Members: a capped library and a daily question limit.
+Fellows: no practical limits, and deep research.

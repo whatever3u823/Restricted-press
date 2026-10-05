@@ -4,12 +4,12 @@
  * The pipeline depends only on this interface. A provider receives the
  * question and the retrieved passages, and must return answer spans whose
  * citations refer to those passages by index — it never returns passage text
- * of its own. Quoted text shown to readers is always taken from the archive.
+ * of its own. Quoted text shown to readers is always taken from the library.
  */
 import type { ArchivistMode } from "./types";
 
 export type ProviderPassage = {
-  /** Label shown to the model, e.g. "FILE 0006 — The Kybalion (1908), Chapter II". */
+  /** Label shown to the model, e.g. "The Prince — Machiavelli — Chapter XVIII — p. 71". */
   title: string;
   /** Stable reference, e.g. the passage URL. */
   source: string;
@@ -30,16 +30,21 @@ export type ProviderAnswer = {
 };
 
 export type QueryPlan = {
-  /** Concepts to search, each with historical synonyms or spellings. */
+  /** Concepts to search, each with synonyms and related vocabulary. */
   concepts: { term: string; variants: string[] }[];
-  /** Titles or authors the question names, if any. */
+  /** Documents in the library the question names, by their exact catalogue titles. */
   mentions: string[];
   intent: "find" | "explain" | "compare" | "trace";
 };
 
+export type CatalogueEntry = { abstract: string; subjects: string[] };
+
 export interface AnswerProvider {
   readonly name: string;
   readonly model: string;
-  plan(question: string): Promise<QueryPlan | null>;
+  /** Plan a search of the library. `catalogue` lists the reader's documents as "Title — Author". */
+  plan(question: string, catalogue: string[]): Promise<QueryPlan | null>;
   answer(input: { question: string; mode: ArchivistMode; passages: ProviderPassage[] }): Promise<ProviderAnswer>;
+  /** Write a short catalogue entry for a newly arrived document. */
+  catalogue?(input: { title: string; author: string | null; excerpt: string }): Promise<CatalogueEntry | null>;
 }

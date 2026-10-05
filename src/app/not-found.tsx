@@ -2,16 +2,13 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div className="wrap narrow" style={{ padding: "96px var(--gutter)", textAlign: "center" }}>
-      <span className="file-no">Error 404 · No such file</span>
-      <h1 className="title-l mt-4">The archive holds nothing at this address.</h1>
-      <p className="meta mt-2">The file may have been withdrawn, or the reference mistyped.</p>
+    <div className="page" style={{ textAlign: "center", paddingTop: "18vh" }}>
+      <span className="eyebrow">Not found</span>
+      <h1 className="h1 mt-2">Nothing is shelved at this address.</h1>
+      <p className="muted mt-2">The document may have been removed, or the link mistyped.</p>
       <div className="row mt-4" style={{ justifyContent: "center" }}>
-        <Link href="/archive" className="btn">
-          Return to the Archive
-        </Link>
-        <Link href="/archivist" className="btn btn--ghost">
-          Ask the Archivist
+        <Link href="/library" className="btn btn--primary">
+          Return to the library
         </Link>
       </div>
     </div>
