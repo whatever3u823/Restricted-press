@@ -52,7 +52,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <label htmlFor="email" className="label">
           Email
         </label>
-        <input id="email" name="email" type="email" required className="input" autoComplete="email" />
+        <input id="email" name="email" type="email" required className="input" autoComplete="email" aria-invalid={error ? true : undefined} aria-describedby={error ? "auth-error" : undefined} />
       </div>
       <div className="field">
         <label htmlFor="password" className="label">
@@ -65,12 +65,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           required
           minLength={mode === "sign-up" ? 10 : undefined}
           className="input"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "auth-error" : undefined}
           autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
         />
         {mode === "sign-up" ? <span className="hint">At least 10 characters.</span> : null}
       </div>
       {error ? (
-        <p className="error-text" role="alert">
+        <p className="error-text" role="alert" id="auth-error">
           {error}
         </p>
       ) : null}

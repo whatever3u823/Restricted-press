@@ -1,11 +1,18 @@
 import type { DocumentKind, ReadingStatus } from "@/db/schema";
 import { STATUS_LABEL } from "@/lib/library";
 
-/** A document's mark in lists: its initial, cut like a spine, with the format below. */
+/** Which leather a volume is bound in: stable for a title, varied across a shelf. */
+export function toneOf(title: string) {
+  let h = 2166136261;
+  for (let i = 0; i < title.length; i++) h = Math.imul(h ^ title.charCodeAt(i), 16777619);
+  return (h >>> 0) % 7;
+}
+
+/** A document's mark: books are bound volumes with a gilt initial; papers and notes are folded sheets. */
 export function Spine({ title, format, kind, large }: { title: string; format: string; kind: DocumentKind; large?: boolean }) {
   const initial = title.replace(/^(the|a|an)\s+/i, "").match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? "·";
   return (
-    <span className={`spine${large ? " spine--lg" : ""}`} data-format={format} data-kind={kind} aria-hidden="true">
+    <span className={`spine${large ? " spine--lg" : ""}`} data-format={format} data-kind={kind} data-tone={toneOf(title)} aria-hidden="true">
       {initial}
     </span>
   );

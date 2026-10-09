@@ -6,7 +6,6 @@ import { Suspense, useEffect, useState, useTransition } from "react";
 import { createCollection } from "@/app/actions";
 import { Mark, Wordmark } from "./brand";
 import {
-  AccountIcon,
   ArchivistIcon,
   ConnectionsIcon,
   FolderIcon,
@@ -125,7 +124,9 @@ export function AppShell({ user, plan, collections, documents, highlights, child
               <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</span>
               <span className={`plan-pill${plan === "fellow" ? " plan-pill--fellow" : ""}`}>{plan === "fellow" ? "Fellow" : "Member"}</span>
             </span>
-            <AccountIcon className="" />
+            <span className="side__account-go" aria-hidden="true">
+              ⋯
+            </span>
           </Link>
         </div>
       </aside>

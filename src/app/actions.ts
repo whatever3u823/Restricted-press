@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { collectionDocuments, collections, documents, entitlements, highlights, passages } from "@/db/schema";
+import { collectionDocuments, collections, documents, entitlements, highlights, passages, researchQueries, user } from "@/db/schema";
 import { PASSAGE_ID } from "@/lib/ingest";
 import { getViewer } from "@/lib/viewer";
 
@@ -183,6 +183,25 @@ export async function endPreviewFellowship(): Promise<ActionResult> {
     .update(entitlements)
     .set({ status: "cancelled", endsAt: new Date(), updatedAt: new Date() })
     .where(and(eq(entitlements.userId, r.userId), eq(entitlements.source, "dev"), eq(entitlements.status, "active")));
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/* ─────────────────────────────── Account ─────────────────────────────── */
+
+/**
+ * Delete the reader's account and everything in it. Documents, passages,
+ * highlights, collections, questions and sessions go with the user row.
+ */
+export async function deleteAccount(confirmation: string): Promise<ActionResult> {
+  const r = await reader();
+  if (!r) return SIGN_IN;
+  if (confirmation.trim().toLowerCase() !== "delete my library") {
+    return { ok: false, message: "Type “delete my library” to confirm." };
+  }
+  // Questions keep no link to a deleted user by design; remove them explicitly first.
+  await db.delete(researchQueries).where(eq(researchQueries.userId, r.userId));
+  await db.delete(user).where(eq(user.id, r.userId));
   revalidatePath("/", "layout");
   return { ok: true };
 }

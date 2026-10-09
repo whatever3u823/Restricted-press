@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DeleteAccount } from "@/components/delete-account";
 import { SignOut } from "@/components/sign-out";
 import { getQuota } from "@/lib/archivist/quota";
 import { LIBRARY_LIMITS } from "@/lib/config";
@@ -76,6 +77,22 @@ export default async function AccountPage() {
             {fellow ? "Manage" : "See the Fellowship"}
           </Link>
         </p>
+      </section>
+
+      <section className="danger">
+        <div className="spread">
+          <div>
+            <h2>Delete account</h2>
+            <p className="muted small mt-1" style={{ maxWidth: "52ch" }}>
+              Removes your library and everything in it, immediately. See{" "}
+              <Link href="/privacy" className="link">
+                what Athenaeum keeps
+              </Link>
+              .
+            </p>
+          </div>
+          <DeleteAccount />
+        </div>
       </section>
     </div>
   );

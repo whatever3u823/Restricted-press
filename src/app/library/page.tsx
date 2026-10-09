@@ -1,7 +1,10 @@
+import { inArray } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Spine, StatusBadge, shortDate } from "@/components/doc-bits";
+import { relative, Spine, StatusBadge, shortDate } from "@/components/doc-bits";
 import { UploadIcon } from "@/components/icons";
+import { db } from "@/db";
+import { sections } from "@/db/schema";
 import { CollectionControls, DiscardUpload, FilterBar } from "@/components/library-controls";
 import type { DocumentKind, ReadingStatus } from "@/db/schema";
 import { LIBRARY_LIMITS } from "@/lib/config";
@@ -35,6 +38,20 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   const collection = filters.collection ? cols.find((c) => c.id === filters.collection) : undefined;
   const filtered = Boolean(filters.q || filters.collection || filters.author || filters.kind || filters.status);
   const resume = recent.filter((d) => d.lastReadAt && d.readingStatus !== "finished").slice(0, 3);
+  // Where each open volume was left, and how far through it that is (by words, not sections).
+  const resumeSections = resume.length
+    ? await db
+        .select({ documentId: sections.documentId, ordinal: sections.ordinal, title: sections.title, wordCount: sections.wordCount })
+        .from(sections)
+        .where(inArray(sections.documentId, resume.map((d) => d.id)))
+    : [];
+  const place = (d: (typeof resume)[number]) => {
+    const secs = resumeSections.filter((x) => x.documentId === d.id);
+    const at = d.lastSection ?? 1;
+    const before = secs.filter((x) => x.ordinal < at).reduce((n, x) => n + x.wordCount, 0);
+    return { title: secs.find((x) => x.ordinal === at)?.title ?? `Section ${at}`, pct: Math.max(1, Math.round((before / Math.max(1, d.wordCount)) * 100)) };
+  };
+  const first = viewer.user.name.trim().split(/\s+/)[0];
   const limit = LIBRARY_LIMITS[viewer.plan];
 
   if (!stats.documents && !incomplete.length) {
@@ -42,8 +59,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       <div className="page">
         <header className="page-head">
           <div className="page-head__text">
-            <span className="eyebrow eyebrow--rule">Library</span>
-            <h1 className="h1">Your shelves are empty.</h1>
+            <span className="eyebrow eyebrow--rule">Private library</span>
+            <h1 className="h1">Welcome, {first}. Your shelves are waiting.</h1>
             <p className="page-head__sub">
               Add the books, papers and articles you work with. Athenaeum reads them, files them by chapter, and
               hands them to the Archivist.
@@ -58,6 +75,23 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
             <span className="btn btn--primary mt-4">Choose files</span>
           </div>
         </Link>
+        <ol className="firstrun">
+          <li>
+            <span className="n">01</span>
+            <h3>File your documents</h3>
+            <p>Books, papers and articles are divided into chapters and paragraphs and indexed, word by word.</p>
+          </li>
+          <li>
+            <span className="n">02</span>
+            <h3>Read and mark</h3>
+            <p>The reading room keeps your place. Highlight passages and note what they mean to you.</p>
+          </li>
+          <li>
+            <span className="n">03</span>
+            <h3>Consult the Archivist</h3>
+            <p>Ask anything of what you own. Every answer is cited to the sentence — and the page.</p>
+          </li>
+        </ol>
       </div>
     );
   }
@@ -66,8 +100,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
     <div className="page page--wide">
       <header className="page-head">
         <div className="page-head__text">
-          <span className="eyebrow eyebrow--rule">{collection ? "Collection" : "Library"}</span>
-          <h1 className="h1">{collection ? collection.name : "Your library"}</h1>
+          <span className="eyebrow eyebrow--rule">{collection ? "Collection" : "Private library"}</span>
+          <h1 className="h1">{collection ? collection.name : `${first}’s library`}</h1>
           {filters.author ? (
             <p className="page-head__sub">
               Documents by {filters.author} · <Link href="/library" className="link">show all</Link>
@@ -123,7 +157,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       {resume.length && !collection && !filtered ? (
         <section className="mt-5" aria-label="Resume reading">
           <div className="section-head" style={{ borderBottom: 0 }}>
-            <span className="eyebrow">Resume</span>
+            <span className="eyebrow">Continue reading</span>
           </div>
           <div className="resume">
             {resume.map((d) => (
@@ -133,11 +167,15 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                   <span className="resume__t" style={{ display: "block" }}>
                     {d.title}
                   </span>
-                  <span className="resume__m" style={{ display: "block" }}>
-                    Section {d.lastSection ?? 1} of {d.sectionCount}
+                  <span className="resume__where" style={{ display: "block" }}>
+                    § {d.lastSection ?? 1} · {place(d).title}
                   </span>
                   <span className="meter" style={{ display: "block" }}>
-                    <span style={{ width: `${Math.round(((d.lastSection ?? 1) / Math.max(1, d.sectionCount)) * 100)}%` }} />
+                    <span style={{ width: `${place(d).pct}%` }} />
+                  </span>
+                  <span className="resume__foot">
+                    <span>{d.lastReadAt ? `Last read ${relative(d.lastReadAt)}` : ""}</span>
+                    <span className="num">{place(d).pct}%</span>
                   </span>
                 </span>
               </Link>

@@ -30,6 +30,7 @@ export function PublicFooter() {
         <span>© {new Date().getFullYear()} Athenaeum. A private library for serious readers.</span>
         <span className="row" style={{ ["--gap" as string]: "20px" }}>
           <Link href="/membership">Membership</Link>
+          <Link href="/privacy">Privacy</Link>
           <Link href="/sign-in">Sign in</Link>
         </span>
       </div>

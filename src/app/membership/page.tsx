@@ -31,9 +31,12 @@ export default async function MembershipPage() {
               The library
             </h2>
           </div>
-          <p className="plan__price">
-            Free<small>always</small>
-          </p>
+          <div>
+            <p className="plan__price">
+              Free<small>always</small>
+            </p>
+            <p className="hint mt-2">No card, no trial period.</p>
+          </div>
           <ul>
             <li>Up to {LIBRARY_LIMITS.member} documents — PDF, EPUB, Word, text, Markdown, HTML</li>
             <li>The reading room: three lighting modes, highlights and notes</li>
@@ -90,6 +93,9 @@ export default async function MembershipPage() {
       <section className="mt-6">
         <div className="block__head">
           <h2>On privacy</h2>
+          <a href="/privacy" className="link small">
+            The full account
+          </a>
         </div>
         <div className="principles" style={{ borderTop: 0 }}>
           <div style={{ paddingTop: 0 }}>
